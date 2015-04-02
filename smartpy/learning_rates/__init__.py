@@ -13,7 +13,7 @@ def factory(**hyperparams):
     """ Create a `LearningRate` instance from `hyperparams`. """
 
     if "lr_type" not in hyperparams:
-        raise ValueError("Hyperparameter 'lr_type' is mandatory ({}).".format(",".join(LEARNING_RATE_METHODS)))
+        raise ValueError("Hyperparameter 'lr_type' is mandatory ({}).".format(", ".join(LEARNING_RATE_METHODS)))
     elif hyperparams["lr_type"] == "constant":
         lr_method = ConstantLearningRate(lr=hyperparams["lr"])
     elif hyperparams["lr_type"] == "ADAGRAD":

@@ -2,7 +2,7 @@ import theano
 import theano.tensor as T
 
 from collections import OrderedDict
-from smartpy.misc.util import sharedX
+from smartpy.misc.utils import sharedX
 from smartpy.learning_rates import LearningRate
 
 

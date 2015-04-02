@@ -4,6 +4,7 @@ import sys
 from time import time
 
 import theano
+import hashlib
 
 
 def sharedX(value, name=None, borrow=False):
@@ -24,3 +25,8 @@ class Timer():
 
     def __exit__(self, type, value, tb):
         print("{:.2f} sec.".format(time()-self.start))
+
+
+def generate_uid_from_string(value):
+    """ Create unique identifier from a string. """
+    return hashlib.sha256(value).hexdigest()

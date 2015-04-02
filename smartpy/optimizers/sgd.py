@@ -8,23 +8,23 @@ from smartpy.learning_rates import ConstantLearningRate
 from smartpy.momentums import NoMomentum
 
 
-def SGD(object):
-    def __init__(self, model, batch_size=1, learning_rate=None, momentum=None):
+class SGD(object):
+    def __init__(self, model, dataset, batch_size=1, learning_rate=None, momentum=None):
         self.model = model
         self.batch_size = batch_size
         self.learning_rate = learning_rate if learning_rate is not None else ConstantLearningRate(lr=1.)
         self.momentum = momentum if momentum is not None else NoMomentum()
 
-        self.updates = OrderedDict
+        self.nb_updates_per_epoch = int(np.ceil(len(dataset) / self.batch_size))
+        self.dataset = theano.shared(dataset, name='data', borrow=True)
 
-    def get_nb_update_per_epoch(self, dataset):
-        return int(np.ceil(len(dataset) / self.batch_size))
+        self.updates = OrderedDict()
 
-    def build_learning_function(self, dataset, extra_updates={}):
+    def build_learning_function(self, extra_updates={}):
         # Build learner
         self.input = T.matrix('input')
-        self.gradients = self.model.get_gradients(self.input)
-        self.updates.update(self.model.get_updates(self.input))
+        self.gradients, updates = self.model.get_gradients(self.input)
+        self.updates.update(updates)
 
         # Apply momentum for all params given their gradient.
         self.gradients, updates_momentum = self.momentum(self.gradients)
@@ -44,7 +44,7 @@ def SGD(object):
         no_batch = T.iscalar('no_batch')
         learn = theano.function([no_batch],
                                 updates=self.updates,
-                                givens={input: dataset[no_batch * self.batch_size:(no_batch + 1) * self.batch_size]},
+                                givens={self.input: self.dataset[no_batch * self.batch_size:(no_batch + 1) * self.batch_size]},
                                 name="learn"
                                 )
 
