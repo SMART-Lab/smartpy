@@ -8,26 +8,20 @@ import argparse
 import datetime
 
 import numpy as np
-import theano.tensor as T
+
+from smartpy.misc import utils
+from smartpy.misc.dataset import UnsupervisedDataset as Dataset
 
 from smartpy import models
 from smartpy import optimizers
 
 from smartpy.learning_rates import LEARNING_RATE_METHODS
 from smartpy.optimizers import OPTIMIZERS
-from smartpy.misc.weight_initializer import WEIGHT_INITIALIZERS
+from smartpy.misc.weights_initializer import WEIGHTS_INITIALIZERS
 
-from mlpython.trainers.trainer import Trainer
+from smartpy.trainers.trainer import Trainer
+from smartpy.trainers import tasks
 
-import mlpython.trainers.tasks as tasks
-
-from mlpython.trainers.tasks import DiffView
-from mlpython.trainers.tasks import AIS_lnZ, AverageNLL, ItemGetter, ModelAttribute, AverageFreeEnergy
-from mlpython.trainers.tasks import EarlyStopping, MaxEpochStopping
-from mlpython.trainers.tasks import SaveModel, ReportMetric, ReportMetricCloud, PrintMetric
-
-import mlpython.misc.utils as mlutils
-import mlpython.datasets as mldatasets
 
 DATASETS = ['binarized_mnist']
 MODELS = ['nade']
@@ -55,8 +49,8 @@ def build_launch_experiment_argsparser(subparser):
     p.add_argument('--lr_dc', type=float, help='decreasing constant.', default=0)
     p.add_argument('--lr_eps', type=float, help='epsilon to better condition the denominator in ADAGRAD.', default=1e-2)
     p.add_argument('--momentum_ratio', type=float, help='ratio to use with momentum.', default=0.0)
-    p.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHT_INITIALIZERS)),
-                   default=WEIGHT_INITIALIZERS[0], choices=WEIGHT_INITIALIZERS)
+    p.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)),
+                   default=WEIGHTS_INITIALIZERS[0], choices=WEIGHTS_INITIALIZERS)
 
     # NADE-like's hyperparameters
     p.add_argument('--size', type=int, help='number of hidden neurons.', default=20)
@@ -108,11 +102,11 @@ def main():
     args = parser.parse_args()
 
     if args.subcommand == "launch":
-        out_dir = os.path.abspath(args.out_dir)
+        out_dir = os.path.abspath(args.out)
         if not os.path.isdir(out_dir):
             parser.error('"{0}" must be an existing folder!'.format(out_dir))
 
-        hyperparams = {"model": args.model_name,
+        hyperparams = {"model": args.model,
                        "dataset": args.dataset,
 
                        # NADE-like hyperparameters
@@ -136,7 +130,7 @@ def main():
 
         # If experiment's name was not given generate one by hashing `hyperparams`.
         if args.name is None:
-            uid = mlutils.generate_uid_from_string(repr(hyperparams))
+            uid = utils.generate_uid_from_string(repr(hyperparams))
             current_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
             args.name = current_time + "__" + uid
 
@@ -186,25 +180,24 @@ def main():
             return
 
     print "Loading dataset..."
-    # TODO: do not use directly mlpython.datasets
-    trainset, validset, testset = mldatasets.load_unsupervised_dataset(hyperparams)
+    dataset = Dataset(hyperparams['dataset'])
 
     print "Building model..."
-    model = models.factory(hyperparams['model'], input_size=len(trainset[0]), hyperparams=hyperparams)
+    model = models.factory(hyperparams['model'], input_size=dataset.input_size, hyperparams=hyperparams)
 
     #no_epoch = 1
     #if args.subcommand == "resume" or not args.is_forcing:
     #    model, no_epoch = mllearners.robust_load(model, data_dir)
 
     ### Build trainer ###
-    optimizer = optimizers.factory(model, dataset=trainset, hyperparams=hyperparams)
+    optimizer = optimizers.factory(model, dataset=dataset.trainset, hyperparams=hyperparams)
     trainer = Trainer(optimizer)
 
     # Add stopping criteria
     if args.max_epochs is not None:
         # Stop when max number of epochs is reached.
         print "Will train {0} for a total of {1} epochs.".format(hyperparams['model'], args.max_epochs)
-        trainer.add_stopping_criterion(MaxEpochStopping(args.max_epochs))
+        trainer.add_stopping_criterion(tasks.MaxEpochStopping(args.max_epochs))
 
     # Print time for one epoch
     trainer.add_task(tasks.PrintEpochDuration())
@@ -229,3 +222,6 @@ def main():
     #     trainer.add_viewer(viewer)
 
     trainer.run()
+
+if __name__ == '__main__':
+    main()

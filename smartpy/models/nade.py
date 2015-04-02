@@ -3,7 +3,7 @@ import theano.tensor as T
 
 import numpy as np
 
-from weights_initializer import WeightsInitializer
+from smartpy.misc.weights_initializer import WeightsInitializer
 
 
 class NADE(object):
@@ -41,10 +41,10 @@ class NADE(object):
         acc_input_times_W = T.set_subtensor(acc_input_times_W[1:], acc_input_times_W[:-1])
         acc_input_times_W = T.set_subtensor(acc_input_times_W[0, :], 0.0)
 
-        acc_input_times_W += self.b[None, None, :]
+        acc_input_times_W += self.bhid[None, None, :]
         h = self.hidden_activation(acc_input_times_W)
 
-        pre_output = T.sum(h * self.W_prime[:, None, :], axis=2) + self.b_prime[:, None]
+        pre_output = T.sum(h * self.V[:, None, :], axis=2) + self.bvis[:, None]
         output = T.nnet.sigmoid(pre_output)
 
         if return_output_preactivation:
@@ -53,7 +53,7 @@ class NADE(object):
         return output
 
     def get_nll(self, input):
-        output, pre_output = self.fprop(input, return_output_preactivation=True)
+        output, pre_output = self.get_fprop(input, return_output_preactivation=True)
         nll = T.sum(T.nnet.softplus(-input.T * pre_output + (1 - input.T) * pre_output), axis=0)
         return nll
 
@@ -66,4 +66,4 @@ class NADE(object):
 
         gparams = T.grad(loss, self.parameters)
         gradients = dict(zip(self.parameters, gparams))
-        return gradients
+        return gradients, {}
