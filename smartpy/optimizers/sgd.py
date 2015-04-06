@@ -3,49 +3,43 @@ import theano.tensor as T
 
 import numpy as np
 from collections import OrderedDict
-
-from smartpy.learning_rates import ConstantLearningRate
-from smartpy.momentums import NoMomentum
+from smartpy.optimizers import Optimizer
 
 
-class SGD(object):
-    def __init__(self, model, dataset, batch_size=1, learning_rate=None, momentum=None):
-        self.model = model
+class SGD(Optimizer):
+    def __init__(self, loss, batch_size=1, update_rules=[]):
+        super(SGD, self).__init__(loss, update_rules=update_rules)
         self.batch_size = batch_size
-        self.learning_rate = learning_rate if learning_rate is not None else ConstantLearningRate(lr=1.)
-        self.momentum = momentum if momentum is not None else NoMomentum()
 
-        self.nb_updates_per_epoch = int(np.ceil(len(dataset) / self.batch_size))
-        self.dataset = theano.shared(dataset, name='data', borrow=True)
-
+    def initialize(self, model, dataset):
         self.updates = OrderedDict()
+        self.dataset = theano.shared(dataset, name='data', borrow=True)
+        self.nb_updates_per_epoch = int(np.ceil(len(dataset) / self.batch_size))
 
-    def build_learning_function(self, extra_updates={}):
         # Build learner
         self.input = T.matrix('input')
-        self.gradients, updates = self.model.get_gradients(self.input)
+        loss = self.loss(self.input)
+
+        self.gradients, updates = model.get_gradients(loss)
         self.updates.update(updates)
 
-        # Apply momentum for all params given their gradient.
-        self.gradients, updates_momentum = self.momentum(self.gradients)
+        # Apply update rules
+        for update_rule in self.update_rules:
+            self.gradients, updates = update_rule.apply(self.gradients)
+            self.updates.update(updates)  # Add updates from update_rule
 
-        # Get learning rates for all params given their gradient.
-        self.lr, updates_lr = self.learning_rate(self.gradients)
-
-        self.updates.update(updates_lr)  # Add updates from learning_rate
-        self.updates.update(updates_momentum)  # Add updates from momentum
-
-        # Updates parameters
+        # Update parameters
         for param, gparam in self.gradients.items():
-            self.updates[param] = param - self.lr[param] * self.gradients[param]
+            self.updates[param] = param - self.gradients[param]
+
+    def build_learning_function(self, extra_updates={}):
+        if not hasattr(self, "updates"):
+            raise NameError("Optimizer has not been initialized! Please use method `initialize(model, dataset)` first.")
 
         self.updates.update(extra_updates)
-
         no_batch = T.iscalar('no_batch')
         learn = theano.function([no_batch],
                                 updates=self.updates,
                                 givens={self.input: self.dataset[no_batch * self.batch_size:(no_batch + 1) * self.batch_size]},
-                                name="learn"
-                                )
-
+                                name="learn")
         return learn

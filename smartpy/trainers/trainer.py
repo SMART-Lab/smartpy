@@ -7,15 +7,19 @@ from threading import Thread
 import theano
 
 #from smartpy.optimizers import SGD
-from smartpy.trainers import TrainingStatus
+from smartpy.trainers import Status
 
 
 class Trainer(Thread):
-    def __init__(self, optimizer, training_status=None):
+    def __init__(self, model, dataset, optimizer, status=None):
         super(Trainer, self).__init__()
 
+        self.model = model
+        self.dataset = dataset
         self.optimizer = optimizer
-        self.training_status = training_status if training_status is not None else TrainingStatus()
+        self.optimizer.initialize(model, dataset)
+
+        self.status = status if status is not None else Status()
 
         self.stopping_criteria = []
         self.tasks = []
@@ -36,48 +40,48 @@ class Trainer(Thread):
 
     def _init(self):
         for task in self.tasks:
-            task.init(self.training_status)
+            task.init(self.status)
 
     def _pre_epoch(self):
         for task in self.tasks:
-            task.pre_epoch(self.training_status)
+            task.pre_epoch(self.status)
 
     def _pre_update(self):
         for task in self.tasks:
-            task.pre_update(self.training_status)
+            task.pre_update(self.status)
 
     def _post_update(self):
         for task in self.tasks:
-            task.post_update(self.training_status)
+            task.post_update(self.status)
 
     def _post_epoch(self):
         for task in self.tasks:
-            task.post_epoch(self.training_status)
+            task.post_epoch(self.status)
 
     def _finished(self):
         for task in self.tasks:
-            task.finished(self.training_status)
+            task.finished(self.status)
 
     def run(self):
         learn = self.optimizer.build_learning_function(extra_updates=self.updates)
-        theano.printing.pydotprint(learn, '{0}_learn_{1}'.format(self.optimizer.model.__class__.__name__, theano.config.device), with_ids=True)
+        theano.printing.pydotprint(learn, '{0}_learn_{1}'.format(self.model.__class__.__name__, theano.config.device), with_ids=True)
 
         self._init()
 
         # Learning
-        for no_epoch in count(self.training_status.current_epoch):
-            self.training_status.current_epoch = no_epoch
+        for no_epoch in count(self.status.current_epoch):
+            self.status.current_epoch = no_epoch
 
             # Check stopping criteria
-            if any([stopping_criterion.check(self.training_status) for stopping_criterion in self.stopping_criteria]):
-                self.training_status.current_epoch -= 1  # We did not complete that epoch
+            if any([stopping_criterion.check(self.status) for stopping_criterion in self.stopping_criteria]):
+                self.status.current_epoch -= 1  # We did not complete that epoch
                 break
 
             self._pre_epoch()
 
             for no_update in xrange(1, self.optimizer.nb_updates_per_epoch+1):
-                self.training_status.relative_update = no_update
-                self.training_status.current_update += 1
+                self.status.relative_update = no_update
+                self.status.current_update += 1
                 self._pre_update()
                 learn(no_update-1)
                 self._post_update()

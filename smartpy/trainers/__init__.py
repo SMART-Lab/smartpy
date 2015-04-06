@@ -1,1 +1,1 @@
-from smartpy.trainers.training_status import TrainingStatus
+from smartpy.trainers.status import Status
