@@ -7,6 +7,7 @@ import json
 import argparse
 import datetime
 
+import theano.tensor as T
 import numpy as np
 
 from smartpy.misc import utils
@@ -15,7 +16,7 @@ from smartpy.misc.dataset import UnsupervisedDataset as Dataset
 from smartpy import models
 from smartpy import optimizers
 
-from smartpy.learning_rates import LEARNING_RATE_METHODS
+from smartpy import update_rules
 from smartpy.optimizers import OPTIMIZERS
 from smartpy.misc.weights_initializer import WEIGHTS_INITIALIZERS
 
@@ -33,7 +34,8 @@ def build_launch_experiment_argsparser(subparser):
     p = subparser.add_parser("launch",
                              description=DESCRIPTION,
                              help=DESCRIPTION,
-                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                             #formatter_class=argparse.ArgumentDefaultsHelpFormatter
+                             )
 
     # General parameters (required)
     p.add_argument('--dataset', type=str, help='dataset to use [{0}].'.format(', '.join(DATASETS)),
@@ -41,23 +43,20 @@ def build_launch_experiment_argsparser(subparser):
     p.add_argument('--model', type=str, help='unsupervised model to use [{0}]'.format(', '.join(MODELS)),
                    default=MODELS[0], choices=MODELS)
 
-    # Common model's hyperparameters
-    p.add_argument('--batch_size', type=int, help='size of the batch to use when training the model.', default=1)
-    p.add_argument('--lr', type=float, help='learning rate.', default=1e-2)
-    p.add_argument('--lr_type', type=str, help='learning rate method to use [{0}].'.format(", ".join(LEARNING_RATE_METHODS)),
-                   default=LEARNING_RATE_METHODS[0], choices=LEARNING_RATE_METHODS)
-    p.add_argument('--lr_dc', type=float, help='decreasing constant.', default=0)
-    p.add_argument('--lr_eps', type=float, help='epsilon to better condition the denominator in ADAGRAD.', default=1e-2)
-    p.add_argument('--momentum_ratio', type=float, help='ratio to use with momentum.', default=0.0)
-    p.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)),
-                   default=WEIGHTS_INITIALIZERS[0], choices=WEIGHTS_INITIALIZERS)
+    # Update rules hyperparameters
+    utils.create_argument_group_from_hyperparams_registry(p, update_rules.UpdateRule.registry, dest="update_rules", title="Update rules")
 
     # NADE-like's hyperparameters
-    p.add_argument('--size', type=int, help='number of hidden neurons.', default=20)
+    nade = p.add_argument_group("NADE")
+    nade.add_argument('--size', type=int, help='number of hidden neurons.', default=20)
+    nade.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)),
+                      default=WEIGHTS_INITIALIZERS[0], choices=WEIGHTS_INITIALIZERS)
 
     # Optimizer hyperparameters
-    p.add_argument('--optimizer_type', type=str, help='optimizer to use for training: [{0}]'.format(OPTIMIZERS),
-                   default=OPTIMIZERS[0], choices=OPTIMIZERS)
+    optimizer = p.add_argument_group("Optimizer")
+    optimizer.add_argument('--optimizer', type=str, help='optimizer to use for training: [{0}]'.format(OPTIMIZERS),
+                           default=OPTIMIZERS[0], choices=OPTIMIZERS)
+    optimizer.add_argument('--batch_size', type=int, help='size of the batch to use when training the model.', default=1)
 
     # General parameters (optional)
     p.add_argument('--name', type=str, help='name of the experiment.')
@@ -100,6 +99,7 @@ def buildArgsParser():
 def main():
     parser = buildArgsParser()
     args = parser.parse_args()
+    print args
 
     if args.subcommand == "launch":
         out_dir = os.path.abspath(args.out)
@@ -111,17 +111,13 @@ def main():
 
                        # NADE-like hyperparameters
                        "size": args.size,
-
-                       # Common model hyperparameters
-                       "lr": args.lr,
-                       "lr_eps": args.lr_eps,
-                       "lr_dc": args.lr_dc,
-                       "lr_type": args.lr_type,
-                       "momentum_ratio": args.momentum_ratio,
                        "weights_initialization": args.weights_initialization,
 
+                       # Update rules hyperparameters
+                       #"update_rules": args.update_rules,
+
                        # Optimizer hyperparameters
-                       "optimizer_type": args.optimizer_type,
+                       "optimizer": args.optimizer,
                        "batch_size": args.batch_size,
 
                        # General parameters
@@ -183,15 +179,17 @@ def main():
     dataset = Dataset(hyperparams['dataset'])
 
     print "Building model..."
-    model = models.factory(hyperparams['model'], input_size=dataset.input_size, hyperparams=hyperparams)
+    nade = models.factory("NADE", input_size=dataset.input_size, hyperparams=hyperparams)
 
     #no_epoch = 1
     #if args.subcommand == "resume" or not args.is_forcing:
     #    model, no_epoch = mllearners.robust_load(model, data_dir)
 
     ### Build trainer ###
-    optimizer = optimizers.factory(model, dataset=dataset.trainset, hyperparams=hyperparams)
-    trainer = Trainer(optimizer)
+    optimizer = optimizers.factory(hyperparams["optimizer"], loss=nade.mean_nll_loss, **hyperparams)
+    optimizer.add_update_rule(*args.update_rules)
+
+    trainer = Trainer(model=nade, dataset=dataset.trainset, optimizer=optimizer)
 
     # Add stopping criteria
     if args.max_epochs is not None:

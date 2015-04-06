@@ -3,10 +3,11 @@ import theano.tensor as T
 
 import numpy as np
 
+from smartpy.models import Model
 from smartpy.misc.weights_initializer import WeightsInitializer
 
 
-class NADE(object):
+class NADE(Model):
     def __init__(self,
                  input_size,
                  hidden_size,
@@ -31,7 +32,7 @@ class NADE(object):
             self.V = theano.shared(value=weights_initialization((input_size, hidden_size)), name='V', borrow=True)
             self.parameters.append(self.V)
 
-    def get_fprop(self, input, return_output_preactivation=False):
+    def fprop(self, input, return_output_preactivation=False):
         input_times_W = input.T[:, :, None] * self.W[:, None, :]
 
         # This uses the SplitOp which isn't available yet on the GPU.
@@ -53,17 +54,15 @@ class NADE(object):
         return output
 
     def get_nll(self, input):
-        output, pre_output = self.get_fprop(input, return_output_preactivation=True)
+        output, pre_output = self.fprop(input, return_output_preactivation=True)
         nll = T.sum(T.nnet.softplus(-input.T * pre_output + (1 - input.T) * pre_output), axis=0)
         return nll
 
-    def get_loss(self, input):
+    def mean_nll_loss(self, input):
         nll = self.get_nll(input)
         return nll.mean()
 
-    def get_gradients(self, input):
-        loss = self.get_loss(input)
-
-        gparams = T.grad(loss, self.parameters)
-        gradients = dict(zip(self.parameters, gparams))
-        return gradients, {}
+    # def get_gradients(self, loss):
+    #     gparams = T.grad(loss, self.parameters)
+    #     gradients = dict(zip(self.parameters, gparams))
+    #     return gradients, {}
