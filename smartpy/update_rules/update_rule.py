@@ -1,3 +1,6 @@
+import numpy as np
+from os.path import join as pjoin
+
 from smartpy.misc.utils import HyperparamsMeta
 
 
@@ -10,24 +13,11 @@ class UpdateRule(object):
     def apply(self, gradients):
         raise NameError('Should be implemented by inheriting classes!')
 
-    def save(self):
-        pass
+    def save(self, savedir="./", filename="update_rule"):
+        parameters = {name: param.get_value() for name, param in self.parameters.items()}
+        np.savez(pjoin(savedir, filename + ".npz"), **parameters)
 
-    def load(self, state):
-        pass
-
-    # def __getstate__(self):
-    #     # Convert defaultdict into a dict
-    #     self.__dict__.update({"update_rules": CustomDict(self.lr)})
-    #     return self.__dict__
-
-    # def __setstate__(self, state):
-    #     self.__dict__.update(state)
-
-    #     if type(self.lr) is not CustomDict:
-    #         self.lr = CustomDict()
-    #         for k, v in state['update_rules'].items():
-    #             self.lr[k] = v
-
-    #     # Make sure each update rule have the right dtype
-    #     self.lr = CustomDict({k: theano.shared(v.get_value().astype(theano.config.floatX), name='update_rule_' + k) for k, v in self.lr.items()})
+    def load(self, loaddir="./", filename="update_rule"):
+        params = np.load(pjoin(loaddir, filename + ".npz"))
+        for name, param in self.parameters.items():
+            param.set_value(params[name])

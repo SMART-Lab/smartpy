@@ -5,10 +5,21 @@ import argparse
 from time import time
 from itertools import izip
 
+import json
 import theano
+import theano.sandbox.softsign
 import hashlib
 
 #from collections import defaultdict
+
+ACTIVATION_FUNCTIONS = {
+    "sigmoid": theano.tensor.nnet.sigmoid,
+    "hinge": lambda x: theano.tensor.maximum(x, 0.0),
+    "softplus": theano.tensor.nnet.softplus,
+    "tanh": theano.tensor.tanh,
+    "softsign": theano.sandbox.softsign.softsign,
+    "brain": lambda x: theano.tensor.maximum(theano.tensor.log(theano.tensor.maximum(x + 1, 1)), 0.0)
+}
 
 
 def sharedX(value, name=None, borrow=False):
@@ -34,6 +45,16 @@ class Timer():
 def generate_uid_from_string(value):
     """ Create unique identifier from a string. """
     return hashlib.sha256(value).hexdigest()
+
+
+def save_dict_to_json_file(path, dictionary):
+    with open(path, "w") as json_file:
+        json_file.write(json.dumps(dictionary, indent=4, separators=(',', ': ')))
+
+
+def load_dict_from_json_file(path):
+    with open(path, "r") as json_file:
+        return json.loads(json_file.read())
 
 
 class RegistryMeta(type):
@@ -76,6 +97,14 @@ def build_custom_type(name, cls):
         try:
             hyperparams = []
             for value, (hyperparam_name, hyperparam_type) in izip(values, cls.__hyperparams__.items()):
+                if isinstance(hyperparam_type, list):
+                    # Choices
+                    choices_type = type(hyperparam_type[0])
+                    if choices_type(value) not in hyperparam_type:
+                        raise argparse.ArgumentTypeError("'{0}' must be one of {1}!".format(hyperparam_name, hyperparam_type))
+
+                    hyperparam_type = choices_type
+
                 hyperparams.append(hyperparam_type(value))
 
             update_rule = cls(*hyperparams)
@@ -90,7 +119,6 @@ def create_argument_group_from_hyperparams_registry(parser, registry, dest, titl
     group = parser.add_argument_group(title)
 
     for name, cls in registry.items():
-
         required_hyperparams = []
         optional_hyperparams = []
         for hyperparam in cls.__hyperparams__.keys():
@@ -104,6 +132,23 @@ def create_argument_group_from_hyperparams_registry(parser, registry, dest, titl
         group.add_argument("--" + name, type=custom_type, metavar=metavar, dest=dest, action="append", help=cls.__doc__)
 
     return group
+
+
+# def create_argument_group_from_hyperparams(parser, cls, title=""):
+#     group = parser.add_argument_group(title)
+
+#     for name, hyperparam_type in cls.__hyperparams__.items():
+#         choices = None
+#         if isinstance(hyperparam_type, list):
+#             choices = hyperparam_type
+#             hyperparam_type = type(choices[0])
+
+#         if name in cls.__optional__:
+#             group.add_argument("--" + name, type=hyperparam_type, choices=choices)
+#         else:
+#             group.add_argument(name, type=hyperparam_type, choices=choices)
+
+#     return group
 
 
 # class CustomDefaultDict(defaultdict):

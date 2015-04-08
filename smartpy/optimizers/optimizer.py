@@ -6,3 +6,11 @@ class Optimizer(object):
 
     def add_update_rule(self, *update_rules):
         self.update_rules += update_rules
+
+    def save(self, savedir="./"):
+        for update_rule in self.update_rules:
+            update_rule.save(savedir, update_rule.__class__.__name__)
+
+    def load(self, loaddir="./"):
+        for update_rule in self.update_rules:
+            update_rule.load(loaddir, update_rule.__class__.__name__)

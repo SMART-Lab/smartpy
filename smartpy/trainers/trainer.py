@@ -6,7 +6,6 @@ from threading import Thread
 
 import theano
 
-#from smartpy.optimizers import SGD
 from smartpy.trainers import Status
 
 
@@ -62,6 +61,16 @@ class Trainer(Thread):
         for task in self.tasks:
             task.finished(self.status)
 
+    def save(self, savedir="./"):
+        self.status.save(savedir)
+        self.optimizer.save(savedir)
+        self.model.save(savedir)
+
+    def load(self, loaddir="./"):
+        self.status.load(loaddir)
+        self.optimizer.load(loaddir)
+        self.model.load(loaddir)
+
     def run(self):
         learn = self.optimizer.build_learning_function(extra_updates=self.updates)
         theano.printing.pydotprint(learn, '{0}_learn_{1}'.format(self.model.__class__.__name__, theano.config.device), with_ids=True)
@@ -69,7 +78,7 @@ class Trainer(Thread):
         self._init()
 
         # Learning
-        for no_epoch in count(self.status.current_epoch):
+        for no_epoch in count(self.status.current_epoch+1):
             self.status.current_epoch = no_epoch
 
             # Check stopping criteria
