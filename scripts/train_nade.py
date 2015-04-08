@@ -133,7 +133,6 @@ def main():
             print "Creating:\n", data_dir
 
         # Save launched command to txt file
-        #open(pjoin(data_dir, "command.txt"), 'w').write(launch_command)
         pickle.dump(sys.argv[sys.argv.index('launch'):], open(pjoin(data_dir, "command.pkl"), 'w'))
 
     elif args.subcommand == "resume":
@@ -144,8 +143,6 @@ def main():
         data_dir = args.experiment
         launch_command = pickle.load(open(pjoin(args.experiment, "command.pkl")))
         command_to_resume = sys.argv[1:sys.argv.index('resume')] + launch_command
-        #command_to_resume += open(pjoin(args.experiment, "command.txt")).read()
-        print command_to_resume
         args = parser.parse_args(command_to_resume)
 
         args.subcommand = "resume"
@@ -181,18 +178,17 @@ def main():
     avg_nll_on_valid = tasks.AverageNLL(nade.get_nll, dataset.validset)
     trainer.add_task(tasks.Print(avg_nll_on_valid, msg="Average NLL on the valiset: {0}"))
 
-    save_model_task = tasks.SaveModel(nade, data_dir)
-
     # Do early stopping bywatching the average NLL on the validset.
     if args.lookahead is not None:
         print "Will train {0} using early stopping with a lookahead of {1} epochs.".format(args.model, args.lookahead)
-        early_stopping = tasks.EarlyStopping(avg_nll_on_valid, args.lookahead, save_model_task, eps=10)
+        save_task = tasks.SaveTraining(trainer, savedir=data_dir)
+        early_stopping = tasks.EarlyStopping(avg_nll_on_valid, args.lookahead, save_task, eps=10)
         trainer.add_stopping_criterion(early_stopping)
         trainer.add_task(early_stopping)
 
     # Add a task to save the whole training process
     if args.save_frequency < np.inf:
-        save_task = tasks.SaveTraining(trainer, savedir=data_dir, save_frequency=args.save_frequency)
+        save_task = tasks.SaveTraining(trainer, savedir=data_dir, each_epoch=args.save_frequency)
         trainer.add_task(save_task)
 
     if args.subcommand == "resume":
