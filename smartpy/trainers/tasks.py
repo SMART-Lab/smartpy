@@ -178,29 +178,16 @@ class EarlyStopping(Task, StoppingCriterion):
             status.extra['best_epoch'] = 0
 
         if 'best_objective' not in status.extra:
-            status.extra['best_objective'] = np.inf
+            status.extra['best_objective'] = float(np.inf)
 
     def post_epoch(self, status):
         objective = self.objective.view(status)
         if objective + self.eps < status.extra['best_objective']:
-            status.extra['best_objective'] = objective
+            status.extra['best_objective'] = float(objective)
             status.extra['best_epoch'] = status.current_epoch
 
             if self.save_task is not None:
                 self.save_task.execute(status)
-
-
-class SaveModel(Task):
-    def __init__(self, model, savedir):
-        self.savedir = savedir
-        self.model = model
-
-        if not os.path.isdir(self.savedir):
-            os.makedirs(self.savedir)
-
-    def execute(self, status):
-        self.model.save(self.savedir)
-        #status.save(self.savedir)
 
 
 class SaveTraining(Task):
@@ -214,6 +201,9 @@ class SaveTraining(Task):
         if not os.path.isdir(self.savedir):
             os.makedirs(self.savedir)
 
+    def execute(self, status):
+        self.trainer.save(self.savedir)
+
     def post_epoch(self, status):
         if status.current_epoch % self.each_epoch == 0:
-            self.trainer.save(self.savedir)
+            self.execute(status)
