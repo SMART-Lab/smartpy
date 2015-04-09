@@ -41,8 +41,10 @@ class NADE(Model):
             self.V = theano.shared(value=np.zeros((input_size, hidden_size), dtype=theano.config.floatX), name='V', borrow=True)
             self.parameters.append(self.V)
 
+    def build_sampling_function(self, seed):
         # Build sampling function
-        theano_rng = RandomStreams(1234)
+        rng = np.random.RandomState(seed)
+        theano_rng = RandomStreams(rng.randint(2**30))
         bit = T.iscalar('bit')
         input = T.matrix('input')
         pre_acc = T.dot(input, self.W) + self.bhid
@@ -120,7 +122,8 @@ class NADE(Model):
 
     #     return acc, samples, updates
 
-    def sample(self, nb_samples):
+    def sample(self, nb_samples, seed=None):
+        self.build_sampling_function(seed)
         samples = np.zeros((nb_samples, self.input_size), dtype="float32")
         for bit in range(self.input_size):
             samples[:, bit] = self.sample_bit_plus(samples, bit)

@@ -19,7 +19,7 @@ def buildArgsParser():
     p.add_argument('--out', type=str, help='name of the samples file', default="samples")
 
     # General parameters (optional)
-    p.add_argument('--seed', type=int, help='seed used to generate random numbers. Default=1234', default=1234)
+    p.add_argument('--seed', type=int, help='seed used to generate random numbers.')
     p.add_argument('--view', action='store_true', help="show samples.")
 
     p.add_argument('-v', '--verbose', action='store_true', help='produce verbose output')
@@ -36,7 +36,7 @@ def main():
         nade = NADE.create(args.nade)
 
     with utils.Timer("Sampling ({0} samples)".format(args.count)):
-        samples = nade.sample(args.count)
+        samples = nade.sample(args.count, seed=args.seed)
 
     outfile = pjoin(args.nade, args.out)
     with utils.Timer("Saving {0} samples to '{1}'".format(args.count, outfile)):
