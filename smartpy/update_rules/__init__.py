@@ -5,4 +5,4 @@ from smartpy.update_rules.momentum import Momentum
 from smartpy.update_rules.adagrad import ADAGRAD
 from smartpy.update_rules.adadelta import ADADELTA
 from smartpy.update_rules.rmsprop import RMSProp
-#from smartpy.learning_rates.adam import Adam
+from smartpy.update_rules.adam import AdamV1

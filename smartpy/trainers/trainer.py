@@ -10,13 +10,13 @@ from smartpy.trainers import Status
 
 
 class Trainer(Thread):
-    def __init__(self, model, dataset, optimizer, status=None):
+    def __init__(self, model, datasets, optimizer, status=None):
         super(Trainer, self).__init__()
 
         self.model = model
-        self.dataset = dataset
+        self.datasets = datasets
         self.optimizer = optimizer
-        self.optimizer.initialize(model, dataset)
+        self.optimizer.initialize(model, *datasets)
 
         self.status = status if status is not None else Status()
 
@@ -73,7 +73,7 @@ class Trainer(Thread):
 
     def run(self):
         learn = self.optimizer.build_learning_function(extra_updates=self.updates)
-        theano.printing.pydotprint(learn, '{0}_learn_{1}'.format(self.model.__class__.__name__, theano.config.device), with_ids=True)
+        #theano.printing.pydotprint(learn, '{0}_learn_{1}'.format(self.model.__class__.__name__, theano.config.device), with_ids=True)
 
         self._init()
 

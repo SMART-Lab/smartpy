@@ -130,6 +130,33 @@ class Evaluate(View):
         self.value = self.func()
 
 
+class Loss(Evaluate):
+    def __init__(self, loss, *datasets):
+        import theano
+        import theano.tensor as T
+
+        datasets = [theano.shared(dataset, name='data', borrow=True) for dataset in datasets]
+        #inputs = [T.matrix('input' + str(i)) for i in range(len(datasets))]
+        compute_loss = theano.function([], loss(*datasets), name="Loss")
+        super(Loss, self).__init__(compute_loss)
+
+
+class AverageObjective(Task):
+    def __init__(self, trainer):
+        super(AverageObjective, self).__init__()
+        self.objective = trainer.track_variable(trainer.optimizer.objective, shape=np.float32(0).shape, name="Objective")
+
+    def pre_epoch(self, status):
+        self.values = []
+
+    def post_update(self, status):
+        self.values.append(self.objective.get_value())
+
+    def post_epoch(self, status):
+        print "Average objective: {}".format(np.mean(self.values))
+
+
+
 class AverageNLL(Evaluate):
     def __init__(self, nll, dataset, batch_size=None):
         import theano
@@ -138,7 +165,7 @@ class AverageNLL(Evaluate):
         if batch_size is None:
             batch_size = len(dataset)
 
-        nb_batches = int(np.ceil(len(dataset[0]) / batch_size))
+        nb_batches = int(np.ceil(len(dataset) / batch_size))
         dataset = theano.shared(dataset, name='data', borrow=True)
 
         input = T.matrix('input')

@@ -57,6 +57,6 @@ class ADAGRAD(UpdateRule):
 
             # Apply update
             updates[sum_squared_grad] = new_sum_squared_grad
-            new_gradients[param] = self.lr/root_sum_squared * gparam
+            new_gradients[param] = (self.lr/root_sum_squared) * gparam
 
         return new_gradients, updates

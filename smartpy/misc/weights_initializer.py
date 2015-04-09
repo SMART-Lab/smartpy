@@ -20,13 +20,13 @@ class WeightsInitializer(object):
         return np.zeros(dim, dtype=theano.config.floatX)
 
     def diagonal(self, dim):
-        W_values = self.Zeros(dim)
+        W_values = self.zeros(dim)
         np.fill_diagonal(W_values, 1)
         return W_values
 
     def orthogonal(self, dim):
         max_dim = max(dim)
-        return np.linalg.svd(self.Uniform((max_dim, max_dim)))[2][:dim[0], :dim[1]]
+        return np.linalg.svd(self.uniform((max_dim, max_dim)))[2][:dim[0], :dim[1]]
 
     def gaussian(self, dim):
         return np.asarray(self.rng.normal(loc=0, scale=self._init_range(dim), size=dim), dtype=theano.config.floatX)
