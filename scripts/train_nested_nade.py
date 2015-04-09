@@ -29,7 +29,7 @@ from smartpy.trainers import tasks
 
 
 DATASETS = ['binarized_mnist']
-MODELS = ['nade']
+MODELS = ['nested_nade']
 
 
 def build_launch_experiment_argsparser(subparser):
@@ -48,11 +48,13 @@ def build_launch_experiment_argsparser(subparser):
                    default=MODELS[0], choices=MODELS)
 
     # NADE-like's hyperparameters
-    nade = p.add_argument_group("NADE")
-    nade.add_argument('--size', type=int, help='number of hidden neurons.', default=20)
-    nade.add_argument('--hidden_activation', type=str, help="Activation functions: {}".format(ACTIVATION_FUNCTIONS.keys()), choices=ACTIVATION_FUNCTIONS.keys(), default=ACTIVATION_FUNCTIONS.keys()[0])
-    nade.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)),
-                      default=WEIGHTS_INITIALIZERS[0], choices=WEIGHTS_INITIALIZERS)
+    nested_nade = p.add_argument_group("Nested NADE")
+    nested_nade.add_argument('--size', type=int, help='number of hidden neurons.', default=20)
+    nested_nade.add_argument('--nade', type=str, help='folder where to find an already trained NADE model')
+    nested_nade.add_argument('--hidden_activation', type=str, help="Activation functions: {}".format(ACTIVATION_FUNCTIONS.keys()), choices=ACTIVATION_FUNCTIONS.keys(), default=ACTIVATION_FUNCTIONS.keys()[0])
+    nested_nade.add_argument('--gamma', type=float, help='tradeoff between nll loss and noise-contrastive loss.', default=1.)
+    nested_nade.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)),
+                             default=WEIGHTS_INITIALIZERS[0], choices=WEIGHTS_INITIALIZERS)
 
     # Update rules hyperparameters
     utils.create_argument_group_from_hyperparams_registry(p, update_rules.UpdateRule.registry, dest="update_rules", title="Update rules")
@@ -152,18 +154,33 @@ def main():
     print "Loading dataset..."
     dataset = Dataset(args.dataset)
 
+    ## TODO: remove, only there for debugging purpose.
+    #dataset.downsample(0.1, rng_seed=1234)
+
     print "Building model..."
-    nade = models.factory("NADE", input_size=dataset.input_size, hyperparams=vars(args))
+    nested_nade = models.factory("NestedNADE", input_size=dataset.input_size, hyperparams=vars(args))
+
+    with utils.Timer("Sampling from trained NADE"):
+        if not os.path.isfile(pjoin(args.nade, "samples.npz")):
+            samples_trainset = nested_nade.trained_nade.sample(len(dataset.trainset))
+            samples_validset = nested_nade.trained_nade.sample(len(dataset.validset))
+            samples_testset = nested_nade.trained_nade.sample(len(dataset.testset))
+            np.savez(pjoin(args.nade, "samples.npz"), trainset=samples_trainset, validset=samples_validset, testset=samples_testset)
+        else:
+            samples = np.load(pjoin(args.nade, "samples.npz"))
+            samples_trainset = samples['trainset']
+            samples_validset = samples['validset']
+            samples_testset = samples['testset']
 
     from smartpy.misc import weights_initializer
     weights_initialization_method = weights_initializer.factory(**vars(args))
-    nade.initialize(weights_initialization_method)
+    nested_nade.initialize(weights_initialization_method)
 
     ### Build trainer ###
-    optimizer = optimizers.factory(args.optimizer, loss=nade.mean_nll_loss, **vars(args))
+    optimizer = optimizers.factory(args.optimizer, loss=nested_nade.loss, **vars(args))
     optimizer.add_update_rule(*args.update_rules)
 
-    trainer = Trainer(model=nade, datasets=[dataset.trainset], optimizer=optimizer)
+    trainer = Trainer(model=nested_nade, datasets=[dataset.trainset, samples_trainset], optimizer=optimizer)
 
     # Add stopping criteria
     if args.max_epochs is not None:
@@ -173,10 +190,11 @@ def main():
 
     # Print time for one epoch
     trainer.add_task(tasks.PrintEpochDuration())
-    trainer.add_task(tasks.AverageObjective(trainer))
-    avg_nll_on_valid = tasks.AverageNLL(nade.get_nll, dataset.validset, batch_size=100)
-    trainer.add_task(tasks.Print(avg_nll_on_valid, msg="Average NLL on the validset: {0}"))
 
+    #avg_loss_on_valid = tasks.Loss(nested_nade.loss, dataset.validset, samples_validset)
+    #trainer.add_task(tasks.Print(avg_loss_on_valid, msg="Average loss on the validset: {0}"))
+    avg_nll_on_valid = tasks.AverageNLL(nested_nade.get_nll, dataset.validset, batch_size=1000)
+    trainer.add_task(tasks.Print(avg_nll_on_valid, msg="Average NLL on the validset: {0}"))
 
     # Do early stopping bywatching the average NLL on the validset.
     if args.lookahead is not None:
