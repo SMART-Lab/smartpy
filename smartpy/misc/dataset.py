@@ -42,6 +42,7 @@ class UnsupervisedDataset(object):
             np.savez(dataset_npy, trainset=trainset, validset=validset, testset=testset)
 
         # Load dataset from a numpy file
+        self.name = dataset_name
         self.datasets = np.load(dataset_npy)
         self._trainset = self.datasets['trainset'].astype(theano.config.floatX)
         self._validset = self.datasets['validset'].astype(theano.config.floatX)

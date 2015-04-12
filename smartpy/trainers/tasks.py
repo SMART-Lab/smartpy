@@ -6,6 +6,8 @@ import numpy as np
 from collections import OrderedDict
 from time import time
 
+from smartpy.misc import utils
+
 
 class StoppingCriterion(object):
     def check(self, status):
@@ -156,8 +158,7 @@ class AverageObjective(Task):
         print "Average objective: {}".format(np.mean(self.values))
 
 
-
-class AverageNLL(Evaluate):
+class EvaluateNLL(Evaluate):
     def __init__(self, nll, dataset, batch_size=None):
         import theano
         import theano.tensor as T
@@ -175,16 +176,21 @@ class AverageNLL(Evaluate):
                                       givens={input: dataset[no_batch * batch_size:(no_batch + 1) * batch_size]},
                                       name="NLL")
 
-        def _average_nll():
+        def _nll_mean_and_std():
             nlls = []
             for i in range(nb_batches):
                 nlls.append(compute_nll(i))
 
             nlls = np.concatenate(nlls)
-            return nlls.mean()
-            #return round(nlls.mean(), 6), round(nlls.std() / np.sqrt(nlls.shape[0]), 6)
+            return round(nlls.mean(), 6), round(nlls.std() / np.sqrt(nlls.shape[0]), 6)
 
-        super(AverageNLL, self).__init__(_average_nll)
+        super(EvaluateNLL, self).__init__(_nll_mean_and_std)
+
+    def get_mean(self, status):
+        return self.view(status)[0]
+
+    def get_std(self, status):
+        return self.view(status)[1]
 
 
 class EarlyStopping(Task, StoppingCriterion):
@@ -234,3 +240,46 @@ class SaveTraining(Task):
     def post_epoch(self, status):
         if status.current_epoch % self.each_epoch == 0:
             self.execute(status)
+
+
+class LogResultCSV(Task):
+    def __init__(self, log_file, log_entry, formatting={}):
+        self.log_file = log_file
+        self.log_entry = log_entry
+        self.formatting = formatting
+
+    def execute(self, status):
+        header = []
+        entry = []
+        for k, v in self.log_entry.items():
+            value = v
+            if callable(v):
+                value = v(status)
+
+            header.append(k)
+            entry.append(self.formatting.get(k, "{}").format(value))
+
+        utils.write_log_file(self.log_file, header, entry)
+
+
+class LogResultGSheet(Task):
+    def __init__(self, sheet_id, email, password, worksheet_name, log_entry, formatting={}):
+        self.gsheet_params = (sheet_id, email, password)
+        self.worksheet_name = worksheet_name
+        self.log_entry = log_entry
+        self.formatting = formatting
+
+    def execute(self, status):
+        header = []
+        entry = []
+        for k, v in self.log_entry.items():
+            value = v
+            if callable(v):
+                value = v(status)
+
+            header.append(k)
+            entry.append(self.formatting.get(k, "{}").format(value))
+
+        from smartpy.misc.gsheet import GSheet
+        gsheet = GSheet(*self.gsheet_params)
+        utils.write_log_gsheet(gsheet, self.worksheet_name, header, entry)

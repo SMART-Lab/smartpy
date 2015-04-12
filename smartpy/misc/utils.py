@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import os
 import sys
 import argparse
 from time import time
@@ -9,6 +10,10 @@ import json
 import theano
 import theano.sandbox.softsign
 import hashlib
+
+import fcntl
+from contextlib import contextmanager
+import logging
 
 #from collections import defaultdict
 
@@ -40,6 +45,20 @@ class Timer():
 
     def __exit__(self, type, value, tb):
         print("{:.2f} sec.".format(time()-self.start))
+
+
+@contextmanager
+def open_with_lock(*args, **kwargs):
+    """ Context manager for opening file with an exclusive lock. """
+    f = open(*args, **kwargs)
+    try:
+        fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        logging.info("Can't immediately write-lock the file ({0}), blocking ...".format(f.name))
+        fcntl.lockf(f, fcntl.LOCK_EX)
+    yield f
+    fcntl.lockf(f, fcntl.LOCK_UN)
+    f.close()
 
 
 def generate_uid_from_string(value):
@@ -168,3 +187,24 @@ def create_argument_group_from_hyperparams_registry(parser, registry, dest, titl
 
 #     def __setitem__(self, key, val):
 #         dict.__setitem__(self, str(key), val)
+
+
+def write_log_file(log_file, header, entry):
+    write_header = not os.path.exists(log_file)
+
+    with open_with_lock(log_file, "a") as f:
+        if write_header:
+            f.write("\t".join(header) + "\n")
+        f.write('\t'.join(entry) + "\n")
+
+
+def write_log_gsheet(gsheet, worksheet_name, header, result):
+    worksheetID = gsheet.getWorksheetID(worksheet_name)
+
+    if worksheetID is None:
+        worksheetID = gsheet.createWorksheet(worksheet_name, header)
+
+    try:
+        gsheet.addRow(worksheetID, result)
+    except:
+        gsheet.addRow(worksheetID, result)
