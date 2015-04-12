@@ -11,7 +11,7 @@ from smartpy.models.nade import NADE
 
 
 def buildArgsParser():
-    DESCRIPTION = "Generate samples fomr a NADE model."
+    DESCRIPTION = "Generate samples from a NADE model."
     p = argparse.ArgumentParser(description=DESCRIPTION, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     p.add_argument('nade', type=str, help='folder where to find a trained NADE model')
