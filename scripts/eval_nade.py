@@ -52,7 +52,7 @@ def main():
     best_epoch = status["extra"]["best_epoch"]
     command = pickle.load(open(pjoin(args.experiment, "command.pkl")))
     lr = float(command[command.index("--AdamV1") + 1])
-    training_time = status.training_time
+    training_time = status["training_time"]
     ######
 
     nll_train = tasks.EvaluateNLL(nade.get_nll, dataset.trainset, batch_size=100)
