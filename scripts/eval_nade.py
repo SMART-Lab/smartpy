@@ -52,6 +52,7 @@ def main():
     best_epoch = status["extra"]["best_epoch"]
     command = pickle.load(open(pjoin(args.experiment, "command.pkl")))
     lr = float(command[command.index("--AdamV1") + 1])
+    training_time = status.training_time
     ######
 
     nll_train = tasks.EvaluateNLL(nade.get_nll, dataset.trainset, batch_size=100)
@@ -60,11 +61,14 @@ def main():
 
     log_entry = OrderedDict()
     log_entry["Learning Rate"] = lr  # trainer.optimizer.update_rules[0].lr
+    log_entry["Learning Rate NADE"] = lr
     log_entry["Random Seed"] = 1234
     log_entry["Hidden Size"] = nade.hyperparams["hidden_size"]
     log_entry["Activation Function"] = nade.hyperparams["hidden_activation"]
+    log_entry["Gamma"] = 0.
     log_entry["Tied Weights"] = nade.hyperparams["tied_weights"]
     log_entry["Best Epoch"] = best_epoch  # trainer.status.extra["best_epoch"]
+    log_entry["Max Epoch"] = ''
     log_entry["Look Ahead"] = 10  # trainer.stopping_criteria[0].lookahead
     log_entry["Batch Size"] = 100  # trainer.optimizer.batch_size
     log_entry["Update Rule"] = "AdamV1"  # trainer.optimizer.update_rules[0].__class__.__name__
@@ -75,17 +79,18 @@ def main():
     log_entry["Validation NLL std"] = nll_valid.get_std
     log_entry["Testing NLL"] = nll_test.get_mean
     log_entry["Testing NLL std"] = nll_test.get_std
-    log_entry["Training Time"] = None  # trainer.status.training_time
+    log_entry["Training Time"] = training_time  # trainer.status.training_time
     log_entry["Experiment"] = os.path.abspath(args.experiment)
+    log_entry["NADE"] = "./"
 
     formatting = {}
-    formatting["Training NLL"] = "{0:.6f}"
-    formatting["Training NLL std"] = "{0:.6f}"
-    formatting["Validation NLL"] = "{0:.6f}"
-    formatting["Validation NLL std"] = "{0:.6f}"
-    formatting["Testing NLL"] = "{0:.6f}"
-    formatting["Testing NLL std"] = "{0:.6f}"
-    #formatting["Training Time"] = "{0:.4f}"
+    formatting["Training NLL"] = "{:.6f}"
+    formatting["Training NLL std"] = "{:.6f}"
+    formatting["Validation NLL"] = "{:.6f}"
+    formatting["Validation NLL std"] = "{:.6f}"
+    formatting["Testing NLL"] = "{:.6f}"
+    formatting["Testing NLL std"] = "{:.6f}"
+    formatting["Training Time"] = "{:.4f}"
 
     status = Status()
     with utils.Timer("Evaluating"):
@@ -94,7 +99,6 @@ def main():
 
         if args.gsheet is not None:
             gsheet_id, gsheet_email, gsheet_password = args.gsheet.split()
-            #logging_task = tasks.LogResultGSheet(gsheet_id, gsheet_email, gsheet_password, dataset.name, log_entry, formatting)
             logging_task = tasks.LogResultGSheet(gsheet_id, gsheet_email, gsheet_password, "NADE", log_entry, formatting)
             logging_task.execute(status)
 
