@@ -89,7 +89,7 @@ def main():
 
     status = Status()
     with utils.Timer("Evaluating"):
-        logging_task = tasks.LogResultCSV("results_{}.csv".format(dataset.name), log_entry, formatting)
+        logging_task = tasks.LogResultCSV("results_{}_{}.csv".format("NADE", dataset.name), log_entry, formatting)
         logging_task.execute(status)
 
         if args.gsheet is not None:

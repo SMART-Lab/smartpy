@@ -5,7 +5,6 @@ import numpy as np
 
 from smartpy.models.nade import NADE
 from smartpy.misc.utils import ACTIVATION_FUNCTIONS
-from smartpy.misc.weights_initializer import WeightsInitializer
 
 
 class NestedNADE(NADE):
@@ -13,42 +12,30 @@ class NestedNADE(NADE):
     __optional__ = ['hidden_activation', 'tied_weights']
 
     def __init__(self,
-                 input_size,
-                 hidden_size,
                  trained_nade,
+                 hidden_size=None,
                  gamma=1.,
-                 hidden_activation="sigmoid",
-                 tied_weights=False):
+                 hidden_activation=None,
+                 *args, **kwargs):
 
-        self.hyperparams = {'input_size': input_size,
-                            'hidden_size': hidden_size,
-                            'hidden_activation': hidden_activation,
-                            'tied_weights': tied_weights}
+        # Load already trained NADE
+        self.trained_nade = NADE.create(trained_nade)
 
-        self.trained_nade = trained_nade
+        if hidden_size is None:
+            hidden_size = self.trained_nade.hyperparams["hidden_size"]
+
+        if hidden_activation is None:
+            hidden_activation = self.trained_nade.hyperparams["hidden_activation"]
+
+        super(NestedNADE, self).__init__(self.trained_nade.input_size,
+                                         hidden_size,
+                                         hidden_activation=hidden_activation,
+                                         *args, **kwargs)
+
+        self.hyperparams['trained_nade'] = trained_nade
+        self.hyperparams['gamma'] = gamma
+
         self.gamma = gamma
-        self.hidden_activation = ACTIVATION_FUNCTIONS[hidden_activation]
-        self.tied_weights = tied_weights
-
-        # Define layers weights and biases (a.k.a parameters)
-        self.W = theano.shared(value=np.zeros((input_size, hidden_size), dtype=theano.config.floatX), name='W', borrow=True)
-        self.bhid = theano.shared(value=np.zeros(hidden_size, dtype=theano.config.floatX), name='bhid', borrow=True)
-        self.bvis = theano.shared(value=np.zeros(input_size, dtype=theano.config.floatX), name='bvis', borrow=True)
-        self.parameters = [self.W, self.bhid, self.bvis]
-
-        self.V = self.W
-        if not tied_weights:
-            self.V = theano.shared(value=np.zeros((input_size, hidden_size), dtype=theano.config.floatX), name='V', borrow=True)
-            self.parameters.append(self.V)
-
-    def initialize(self, weights_initialization=None):
-        if weights_initialization is None:
-            weights_initialization = WeightsInitializer().uniform
-
-        self.W.set_value(weights_initialization(self.W.get_value().shape))
-
-        if not self.tied_weights:
-            self.V.set_value(weights_initialization(self.V.get_value().shape))
 
     def noise_contrastive_loss(self, input, noise):
         #noise, updates = self.trained_nade.sample(input)
@@ -62,7 +49,7 @@ class NestedNADE(NADE):
     def loss(self, input, noise):
         mean_nll_loss = self.mean_nll_loss(input)
         noise_contrastive_loss = self.noise_contrastive_loss(input, noise)
-        return mean_nll_loss + self.gamma * noise_contrastive_loss
+        return mean_nll_loss - self.gamma * noise_contrastive_loss
 
     # def get_gradients(self, loss):
     #     gparams = T.grad(loss, self.parameters)

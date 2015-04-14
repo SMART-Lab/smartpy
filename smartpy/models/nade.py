@@ -11,19 +11,24 @@ from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 
 class NADE(Model):
-    __hyperparams__ = {'input_size': int, 'hidden_size': int, 'hidden_activation': ACTIVATION_FUNCTIONS.keys(), 'tied_weights': bool}
+    __hyperparams__ = {'input_size': int,
+                       'hidden_size': int,
+                       'hidden_activation': ACTIVATION_FUNCTIONS.keys(),
+                       'tied_weights': bool}
     __optional__ = ['hidden_activation', 'tied_weights']
 
     def __init__(self,
                  input_size,
                  hidden_size,
                  hidden_activation="sigmoid",
-                 tied_weights=False):
+                 tied_weights=False,
+                 *args, **kwargs):
+        super(NADE, self).__init__(*args, **kwargs)
 
-        self.hyperparams = {'input_size': input_size,
-                            'hidden_size': hidden_size,
-                            'hidden_activation': hidden_activation,
-                            'tied_weights': tied_weights}
+        self.hyperparams['input_size'] = input_size
+        self.hyperparams['hidden_size'] = hidden_size
+        self.hyperparams['hidden_activation'] = hidden_activation
+        self.hyperparams['tied_weights'] = tied_weights
 
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -34,7 +39,7 @@ class NADE(Model):
         self.W = theano.shared(value=np.zeros((input_size, hidden_size), dtype=theano.config.floatX), name='W', borrow=True)
         self.bhid = theano.shared(value=np.zeros(hidden_size, dtype=theano.config.floatX), name='bhid', borrow=True)
         self.bvis = theano.shared(value=np.zeros(input_size, dtype=theano.config.floatX), name='bvis', borrow=True)
-        self.parameters = [self.W, self.bhid, self.bvis]
+        self.parameters.extend([self.W, self.bhid, self.bvis])
 
         self.V = self.W
         if not tied_weights:

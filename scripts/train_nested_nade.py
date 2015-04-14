@@ -67,7 +67,7 @@ def build_launch_experiment_argsparser(subparser):
 
     # Trainer parameters
     trainer = p.add_argument_group("Trainer")
-    trainer.add_argument('--max_epochs', type=int, help='maximum number of epochs.')
+    trainer.add_argument('--max_epoch', type=int, help='maximum number of epochs.')
     trainer.add_argument('--lookahead', type=int, help='use early stopping with this lookahead.')
 
     # General parameters (optional)
@@ -96,7 +96,7 @@ def buildArgsParser():
 
     p.add_argument('--keep', dest='save_frequency', action='store', type=int, help='save model every N epochs. Default=once finished', default=np.inf)
     p.add_argument('--report', dest='report_frequency', action='store', type=int, help="report results every N epochs. Default=once finished", default=np.inf)
-    p.add_argument('--no_cloud', action='store_true', help="disable cloud reporting (using gspread).")
+    p.add_argument('--gsheet', type=str, metavar="SHEET_ID EMAIL PASSWORD", help="log results into a Google's Spreadsheet.")
     p.add_argument('--view', action='store_true', help="show filters during training.")
     p.add_argument('--dry', action='store_true', help='only print folder used and quit')
 
@@ -174,22 +174,22 @@ def main():
     trainer = Trainer(model=nested_nade, datasets=[dataset.trainset, samples_trainset], optimizer=optimizer)
 
     # Add stopping criteria
-    if args.max_epochs is not None:
+    if args.max_epoch is not None:
         # Stop when max number of epochs is reached.
-        print "Will train {0} for a total of {1} epochs.".format(args.model, args.max_epochs)
-        trainer.add_stopping_criterion(tasks.MaxEpochStopping(args.max_epochs))
+        print "Will train {0} for a total of {1} epochs.".format(args.model, args.max_epoch)
+        trainer.add_stopping_criterion(tasks.MaxEpochStopping(args.max_epoch))
 
     # Print time for one epoch
     trainer.add_task(tasks.PrintEpochDuration())
 
-    avg_nll_on_valid = tasks.AverageNLL(nested_nade.get_nll, dataset.validset, batch_size=100)
-    trainer.add_task(tasks.Print(avg_nll_on_valid, msg="Average NLL on the validset: {0}"))
+    nll_valid = tasks.EvaluateNLL(nested_nade.get_nll, dataset.validset, batch_size=100)
+    trainer.add_task(tasks.Print(nll_valid.mean, msg="Average NLL on the validset: {0}"))
 
     # Do early stopping bywatching the average NLL on the validset.
     if args.lookahead is not None:
         print "Will train {0} using early stopping with a lookahead of {1} epochs.".format(args.model, args.lookahead)
         save_task = tasks.SaveTraining(trainer, savedir=data_dir)
-        early_stopping = tasks.EarlyStopping(avg_nll_on_valid, args.lookahead, save_task, eps=1e-6)
+        early_stopping = tasks.EarlyStopping(nll_valid.mean, args.lookahead, save_task, eps=1e-4)
         trainer.add_stopping_criterion(early_stopping)
         trainer.add_task(early_stopping)
 
@@ -203,6 +203,8 @@ def main():
         trainer.load(data_dir)
 
     trainer.run()
+    trainer.status.save(savedir=data_dir)
+
 
 if __name__ == '__main__':
     main()
