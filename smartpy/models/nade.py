@@ -4,7 +4,7 @@ import theano.tensor as T
 import numpy as np
 
 from smartpy.models import Model
-from smartpy.misc.utils import ACTIVATION_FUNCTIONS
+from smartpy.misc.utils import ACTIVATION_FUNCTIONS, Timer
 from smartpy.misc.weights_initializer import WeightsInitializer
 
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
@@ -46,7 +46,7 @@ class NADE(Model):
             self.V = theano.shared(value=np.zeros((input_size, hidden_size), dtype=theano.config.floatX), name='V', borrow=True)
             self.parameters.append(self.V)
 
-    def build_sampling_function(self, seed):
+    def build_sampling_function(self, seed=None):
         # Build sampling function
         rng = np.random.RandomState(seed)
         theano_rng = RandomStreams(rng.randint(2**30))
@@ -57,7 +57,16 @@ class NADE(Model):
         pre_output = T.sum(h * self.V[bit], axis=1) + self.bvis[bit]
         probs = T.nnet.sigmoid(pre_output)
         bits = theano_rng.binomial(p=probs, size=probs.shape, n=1, dtype=theano.config.floatX)
-        self.sample_bit_plus = theano.function([input, bit], bits)
+        sample_bit_plus = theano.function([input, bit], bits)
+
+        def _sample(nb_samples):
+            with Timer("Generating {} samples from NADE".format(nb_samples)):
+                samples = np.zeros((nb_samples, self.input_size), dtype="float32")
+                for bit in range(self.input_size):
+                    samples[:, bit] = sample_bit_plus(samples, bit)
+
+                return samples
+        return _sample
 
     def initialize(self, weights_initialization=None):
         if weights_initialization is None:
@@ -126,11 +135,3 @@ class NADE(Model):
     #                                         outputs_info=[(self.bhid[:, None] + S).T, S])
 
     #     return acc, samples, updates
-
-    def sample(self, nb_samples, seed=None):
-        self.build_sampling_function(seed)
-        samples = np.zeros((nb_samples, self.input_size), dtype="float32")
-        for bit in range(self.input_size):
-            samples[:, bit] = self.sample_bit_plus(samples, bit)
-
-        return samples

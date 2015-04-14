@@ -36,22 +36,17 @@ class NestedNADE(NADE):
         self.hyperparams['gamma'] = gamma
 
         self.gamma = gamma
+        #self.noise = theano.shared(np.zeros((1, self.input_size), dtype=theano.config.floatX),
+        #                            name='noise', borrow=True)
 
-    def noise_contrastive_loss(self, input, noise):
-        #noise, updates = self.trained_nade.sample(input)
-
+    def noise_contrastive_cost(self, input, noise):
         G = lambda u: (-self.get_nll(u)) - (-self.trained_nade.get_nll(u))
         h = lambda u: T.nnet.sigmoid(G(u))
 
-        noise_contrastive_losses = T.log(h(input)) + T.log(1 - h(noise))
-        return 0.5 * noise_contrastive_losses.mean()
+        noise_contrastive_costs = T.log(h(input)) + T.log(1 - h(noise))
+        return 0.5 * noise_contrastive_costs.mean()
 
     def loss(self, input, noise):
         mean_nll_loss = self.mean_nll_loss(input)
-        noise_contrastive_loss = self.noise_contrastive_loss(input, noise)
-        return mean_nll_loss - self.gamma * noise_contrastive_loss
-
-    # def get_gradients(self, loss):
-    #     gparams = T.grad(loss, self.parameters)
-    #     gradients = dict(zip(self.parameters, gparams))
-    #     return gradients, {}
+        noise_contrastive_cost = self.noise_contrastive_cost(input, noise)
+        return mean_nll_loss - self.gamma * noise_contrastive_cost
