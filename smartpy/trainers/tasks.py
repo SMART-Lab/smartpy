@@ -302,3 +302,25 @@ class LogResultGSheet(Task):
         from smartpy.misc.gsheet import GSheet
         gsheet = GSheet(*self.gsheet_params)
         utils.write_log_gsheet(gsheet, self.worksheet_name, header, entry)
+
+
+class Sampling(Task):
+    def __init__(self, sampling_func, nb_samples, shape, each_epoch=0, seed=None):
+        super(Sampling, self).__init__()
+
+        import theano
+        self.sampling_func = sampling_func
+        self.nb_samples = nb_samples
+        self.each_epoch = each_epoch
+        self.samples = theano.shared(np.zeros((nb_samples,) + tuple(shape), dtype=theano.config.floatX),
+                                     name='samples', borrow=True)
+
+    def _sample(self):
+        self.samples.set_value(self.sampling_func(self.nb_samples))
+
+    def init(self, status):
+        self._sample()
+
+    def post_epoch(self, status):
+        if self.each_epoch != 0 and status.current_epoch % self.each_epoch == 0:
+            self._sample()

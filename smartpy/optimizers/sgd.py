@@ -13,7 +13,16 @@ class SGD(Optimizer):
 
     def initialize(self, model, *datasets):
         self.updates = OrderedDict()
-        self.datasets = [theano.shared(dataset, name='data', borrow=True) for dataset in datasets]
+
+        # Convert datasets to SharedVariable if needed
+        self.datasets = []
+        for i, dataset in enumerate(datasets):
+            dataset_shared = dataset
+            if isinstance(dataset, np.ndarray):
+                dataset_shared = theano.shared(dataset, name='data_'+str(i), borrow=True)
+
+            self.datasets.append(dataset_shared)
+
         self.nb_updates_per_epoch = int(np.ceil(len(datasets[0]) / self.batch_size))
 
         # Build learner
