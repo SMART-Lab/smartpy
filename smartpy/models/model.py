@@ -9,7 +9,7 @@ from smartpy.misc.utils import HyperparamsMeta
 class Model(object):
     __metaclass__ = HyperparamsMeta
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.parameters = []
         self.hyperparams = {}
 

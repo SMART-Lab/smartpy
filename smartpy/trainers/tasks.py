@@ -60,6 +60,18 @@ class View(Task):
         return "{0}".format(self.value)
 
 
+class ItemGetter(View):
+    def __init__(self, view, attribute):
+        """ Retrieves `attribute` from a `view` which outputs a dictionnary """
+        super(ItemGetter, self).__init__()
+        self.view_obj = view
+        self.attribute = attribute
+
+    def update(self, status):
+        infos = self.view_obj.view(status)
+        self.value = infos[self.attribute]
+
+
 class Print(Task):
     def __init__(self, view, msg="{0}", each_epoch=1, each_update=0):
         super(Print, self).__init__()
@@ -120,7 +132,7 @@ class MaxEpochStopping(StoppingCriterion):
         self.nb_epochs_max = nb_epochs_max
 
     def check(self, status):
-        return status.current_epoch > self.nb_epochs_max
+        return status.current_epoch >= self.nb_epochs_max
 
 
 class Evaluate(View):
@@ -186,11 +198,13 @@ class EvaluateNLL(Evaluate):
 
         super(EvaluateNLL, self).__init__(_nll_mean_and_std)
 
-    def get_mean(self, status):
-        return self.view(status)[0]
+    @property
+    def mean(self):
+        return ItemGetter(self, attribute=0)
 
-    def get_std(self, status):
-        return self.view(status)[1]
+    @property
+    def std(self):
+        return ItemGetter(self, attribute=1)
 
 
 class EarlyStopping(Task, StoppingCriterion):
@@ -204,7 +218,7 @@ class EarlyStopping(Task, StoppingCriterion):
         self.stopping = False
 
     def check(self, status):
-        return status.current_epoch - status.extra['best_epoch'] > self.lookahead
+        return status.current_epoch - status.extra['best_epoch'] >= self.lookahead
 
     def init(self, status):
         if 'best_epoch' not in status.extra:
@@ -216,6 +230,7 @@ class EarlyStopping(Task, StoppingCriterion):
     def post_epoch(self, status):
         objective = self.objective.view(status)
         if objective + self.eps < status.extra['best_objective']:
+            print "Best epoch", status.current_epoch
             status.extra['best_objective'] = float(objective)
             status.extra['best_epoch'] = status.current_epoch
 
@@ -255,6 +270,8 @@ class LogResultCSV(Task):
             value = v
             if callable(v):
                 value = v(status)
+            elif isinstance(v, View):
+                value = v.view(status)
 
             header.append(k)
             entry.append(self.formatting.get(k, "{}").format(value))
@@ -276,6 +293,8 @@ class LogResultGSheet(Task):
             value = v
             if callable(v):
                 value = v(status)
+            elif isinstance(v, View):
+                value = v.view(status)
 
             header.append(k)
             entry.append(self.formatting.get(k, "{}").format(value))

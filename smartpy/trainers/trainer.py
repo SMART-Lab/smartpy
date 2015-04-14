@@ -5,7 +5,7 @@ from itertools import count
 from threading import Thread
 
 import theano
-
+from time import time
 from smartpy.trainers import Status
 
 
@@ -75,18 +75,16 @@ class Trainer(Thread):
         learn = self.optimizer.build_learning_function(extra_updates=self.updates)
         #theano.printing.pydotprint(learn, '{0}_learn_{1}'.format(self.model.__class__.__name__, theano.config.device), with_ids=True)
 
-        self._init()
+        # Only do init if not resuming
+        if self.status.current_epoch == 0:
+            self._init()
 
         # Learning
-        for no_epoch in count(self.status.current_epoch+1):
-            self.status.current_epoch = no_epoch
-
-            # Check stopping criteria
-            if any([stopping_criterion.check(self.status) for stopping_criterion in self.stopping_criteria]):
-                self.status.current_epoch -= 1  # We did not complete that epoch
-                break
+        while not any([stopping_criterion.check(self.status) for stopping_criterion in self.stopping_criteria]):
+            self.status.current_epoch += 1
 
             self._pre_epoch()
+            starttime = time()
 
             for no_update in xrange(1, self.optimizer.nb_updates_per_epoch+1):
                 self.status.relative_update = no_update
@@ -95,6 +93,8 @@ class Trainer(Thread):
                 learn(no_update-1)
                 self._post_update()
 
+            self.status.training_time += time() - starttime
             self._post_epoch()
 
         self._finished()
+        self.status.done = True
