@@ -182,7 +182,7 @@ def main():
     if args.lookahead is not None:
         print "Will train {0} using early stopping with a lookahead of {1} epochs.".format(args.model, args.lookahead)
         save_task = tasks.SaveTraining(trainer, savedir=data_dir)
-        early_stopping = tasks.EarlyStopping(nll_valid.mean, args.lookahead, save_task, eps=5)#eps=1e-4)
+        early_stopping = tasks.EarlyStopping(nll_valid.mean, args.lookahead, save_task, eps=1e-4)
         trainer.add_stopping_criterion(early_stopping)
         trainer.add_task(early_stopping)
 
