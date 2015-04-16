@@ -72,6 +72,23 @@ class ItemGetter(View):
         self.value = infos[self.attribute]
 
 
+class PrintSharedVariable(Task):
+    def __init__(self, shared_vars, msg="{0}", each_epoch=1, each_update=0):
+        super(PrintSharedVariable, self).__init__()
+        self.msg = msg
+        self.each_epoch = each_epoch
+        self.each_update = each_update
+        self.shared_vars = shared_vars
+
+    def post_update(self, status):
+        if self.each_update != 0 and status.current_update % self.each_update == 0:
+            print self.msg.format(*[shared_var.get_value() for shared_var in self.shared_vars])
+
+    def post_epoch(self, status):
+        if self.each_epoch != 0 and status.current_epoch % self.each_epoch == 0:
+            print self.msg.format(*[shared_var.get_value() for shared_var in self.shared_vars])
+
+
 class Print(Task):
     def __init__(self, view, msg="{0}", each_epoch=1, each_update=0):
         super(Print, self).__init__()
