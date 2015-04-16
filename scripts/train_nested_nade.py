@@ -175,10 +175,9 @@ def main():
 
     # Print time for one epoch
     trainer.add_task(tasks.PrintEpochDuration())
-    trainer.add_task(sampling_task)
-
     nll_valid = tasks.EvaluateNLL(nested_nade.get_nll, dataset.validset, batch_size=100)
     trainer.add_task(tasks.Print(nll_valid.mean, msg="Average NLL on the validset: {0}"))
+    trainer.add_task(sampling_task)
 
     # Add stopping criteria
     if args.max_epoch is not None:
