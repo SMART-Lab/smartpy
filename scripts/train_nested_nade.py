@@ -179,6 +179,10 @@ def main():
     trainer.add_task(tasks.Print(nll_valid.mean, msg="Average NLL on the validset: {0}"))
     trainer.add_task(sampling_task)
 
+    #noise_term_mean = trainer.track_variable(nested_nade.noise_term_mean, shape=np.float64(0).shape)
+    #alike_term_mean = trainer.track_variable(nested_nade.alike_term_mean, shape=np.float64(0).shape)
+    #trainer.add_task(tasks.PrintSharedVariable([alike_term_mean, noise_term_mean], msg="Term: {0}\t{1}", each_update=10, each_epoch=0))
+
     # Add stopping criteria
     if args.max_epoch is not None:
         # Stop when max number of epochs is reached.
@@ -213,14 +217,18 @@ def main():
     nll_valid = tasks.EvaluateNLL(nested_nade.get_nll, dataset.validset, batch_size=100)
     nll_test = tasks.EvaluateNLL(nested_nade.get_nll, dataset.testset, batch_size=100)
 
+    command_nade = pickle.load(open(pjoin(args.nade, "command.pkl")))
+    lr_nade = float(command_nade[command_nade.index("--AdamV1") + 1])  # TOFIX
+
     from collections import OrderedDict
     log_entry = OrderedDict()
     log_entry["Learning Rate"] = trainer.optimizer.update_rules[0].lr
-    log_entry["Learning Rate NADE"] = trainer.optimizer.update_rules[0].lr
+    log_entry["Learning Rate NADE"] = lr_nade
     log_entry["Random Seed"] = args.seed
     log_entry["Hidden Size"] = nested_nade.hyperparams["hidden_size"]
     log_entry["Activation Function"] = nested_nade.hyperparams["hidden_activation"]
     log_entry["Gamma"] = nested_nade.hyperparams["gamma"]
+    log_entry["Sampling"] = int(args.sampling)
     log_entry["Tied Weights"] = nested_nade.hyperparams["tied_weights"]
     log_entry["Best Epoch"] = trainer.status.extra["best_epoch"] if args.lookahead else trainer.status.current_epoch
     log_entry["Max Epoch"] = trainer.stopping_criteria[0].nb_epochs_max if args.max_epoch else ''
