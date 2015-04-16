@@ -113,6 +113,7 @@ class Print(Task):
 class PrintEpochDuration(Task):
     def __init__(self):
         super(PrintEpochDuration, self).__init__()
+        self.training_start_time = time()  # TOFIX: In case we are resuming
 
     def init(self, status):
         self.training_start_time = time()
