@@ -30,6 +30,7 @@ from smartpy.trainers import tasks
 
 DATASETS = ['binarized_mnist']
 MODELS = ['nested_nade']
+WEIGHTS_INITIALIZERS = ["NADE"] + WEIGHTS_INITIALIZERS
 
 
 def build_launch_experiment_argsparser(subparser):
@@ -55,6 +56,7 @@ def build_launch_experiment_argsparser(subparser):
     nested_nade.add_argument('--hidden_activation', type=str, help="Activation functions: {}".format(ACTIVATION_FUNCTIONS.keys()), choices=ACTIVATION_FUNCTIONS.keys())
     nested_nade.add_argument('--gamma', type=float, help='tradeoff between nll loss and noise-contrastive loss.', default=1.)
     nested_nade.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)), choices=WEIGHTS_INITIALIZERS, default=WEIGHTS_INITIALIZERS[0])
+    #nested_nade.add_argument('--use_nade_weights', action='store_true', help='initialize NN-NADE with weights of NADE')
 
     # Update rules hyperparameters
     utils.create_argument_group_from_hyperparams_registry(p, update_rules.UpdateRule.registry, dest="update_rules", title="Update rules")
@@ -163,9 +165,15 @@ def main():
                                    shape=(nested_nade.input_size, ),
                                    each_epoch=args.sampling)
 
-    from smartpy.misc import weights_initializer
-    weights_initialization_method = weights_initializer.factory(**vars(args))
-    nested_nade.initialize(weights_initialization_method)
+    if args.weights_initialization == 'NADE':
+        nested_nade.W.set_value(nested_nade.trained_nade.W.get_value())
+        nested_nade.bhid.set_value(nested_nade.trained_nade.bhid.get_value())
+        nested_nade.bvis.set_value(nested_nade.trained_nade.bvis.get_value())
+        nested_nade.V.set_value(nested_nade.trained_nade.V.get_value())
+    else:
+        from smartpy.misc import weights_initializer
+        weights_initialization_method = weights_initializer.factory(**vars(args))
+        nested_nade.initialize(weights_initialization_method)
 
     ### Build trainer ###
     optimizer = optimizers.factory(args.optimizer, loss=nested_nade.loss, **vars(args))
