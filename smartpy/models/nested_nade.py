@@ -44,7 +44,7 @@ class NestedNADE(NADE):
 
     def noise_contrastive_cost(self, input, noise):
         # Difference of the log likelihoods of NestedNADE and trainedNADE
-        G = lambda u: (-self.get_nll(u)) - (-self.trained_nade.get_nll(u))
+        G = lambda u: (-self.get_nll(u, u)) - (-self.trained_nade.get_nll(u, u))
         #h = lambda u: T.nnet.sigmoid(G(u))
 
         alike_term = -T.nnet.softplus(-G(input))
