@@ -57,6 +57,6 @@ class NestedNADE(NADE):
         return 0.5 * noise_contrastive_costs.mean()
 
     def loss(self, input, noise):
-        mean_nll_loss = self.mean_nll_loss(input)
+        mean_nll_loss = self.mean_nll_loss(input, input)
         noise_contrastive_cost = self.noise_contrastive_cost(input, noise)
         return mean_nll_loss - self.gamma * noise_contrastive_cost
