@@ -184,7 +184,7 @@ def main():
 
     # Print time for one epoch
     trainer.add_task(tasks.PrintEpochDuration())
-    nll_valid = tasks.EvaluateNLL(nested_nade.get_nll, dataset.validset, batch_size=100)
+    nll_valid = tasks.EvaluateNLL(nested_nade.get_nll, [dataset.validset_shared]*2, batch_size=100)
     trainer.add_task(tasks.Print(nll_valid.mean, msg="Average NLL on the validset: {0}"))
     trainer.add_task(sampling_task)
 
@@ -222,9 +222,9 @@ def main():
         trainer.save(savedir=data_dir)
 
     # Evaluate model on train, valid and test sets
-    nll_train = tasks.EvaluateNLL(nested_nade.get_nll, dataset.trainset, batch_size=100)
-    nll_valid = tasks.EvaluateNLL(nested_nade.get_nll, dataset.validset, batch_size=100)
-    nll_test = tasks.EvaluateNLL(nested_nade.get_nll, dataset.testset, batch_size=100)
+    nll_train = tasks.EvaluateNLL(nested_nade.get_nll, [dataset.trainset_shared]*2, batch_size=100)
+    nll_valid = tasks.EvaluateNLL(nested_nade.get_nll, [dataset.validset_shared]*2, batch_size=100)
+    nll_test = tasks.EvaluateNLL(nested_nade.get_nll, [dataset.testset_shared]*2, batch_size=100)
 
     command_nade = pickle.load(open(pjoin(args.nade, "command.pkl")))
     lr_nade = float(command_nade[command_nade.index("--AdamV1") + 1])  # TOFIX
