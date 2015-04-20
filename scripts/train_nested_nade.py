@@ -54,7 +54,8 @@ def build_launch_experiment_argsparser(subparser):
     nested_nade.add_argument('--sampling', metavar="N", type=int, help='sampling will be done at N epoch (Default: only once at the beginning)', default=0)
     nested_nade.add_argument('--size', type=int, help='number of hidden neurons.')
     nested_nade.add_argument('--hidden_activation', type=str, help="Activation functions: {}".format(ACTIVATION_FUNCTIONS.keys()), choices=ACTIVATION_FUNCTIONS.keys())
-    nested_nade.add_argument('--gamma', type=float, help='tradeoff between nll loss and noise-contrastive loss.', default=1.)
+    nested_nade.add_argument('--gamma', type=float, help="'tradeoff' between nll loss and noise-contrastive loss.", default=1.)
+    nested_nade.add_argument('--noise_lambda', type=float, help='weight on the noise term in the noise-contrastive loss.', default=1.)
     nested_nade.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)), choices=WEIGHTS_INITIALIZERS, default=WEIGHTS_INITIALIZERS[0])
     #nested_nade.add_argument('--use_nade_weights', action='store_true', help='initialize NN-NADE with weights of NADE')
 
@@ -232,19 +233,23 @@ def main():
     log_entry = OrderedDict()
     log_entry["Learning Rate"] = trainer.optimizer.update_rules[0].lr
     log_entry["Learning Rate NADE"] = lr_nade
-    log_entry["Random Seed"] = args.seed
     log_entry["Hidden Size"] = nested_nade.hyperparams["hidden_size"]
     log_entry["Activation Function"] = nested_nade.hyperparams["hidden_activation"]
     log_entry["Gamma"] = nested_nade.hyperparams["gamma"]
+    log_entry["Noise Lambda"] = nested_nade.hyperparams["noise_lambda"]
     log_entry["Sampling"] = int(args.sampling)
+    log_entry["Initialization Seed"] = args.seed
+    log_entry["Ordering Seed"] = args.ordering_seed
     log_entry["Tied Weights"] = nested_nade.hyperparams["tied_weights"]
     log_entry["Best Epoch"] = trainer.status.extra["best_epoch"] if args.lookahead else trainer.status.current_epoch
     log_entry["Max Epoch"] = trainer.stopping_criteria[0].nb_epochs_max if args.max_epoch else ''
 
     if args.max_epoch:
         log_entry["Look Ahead"] = trainer.stopping_criteria[1].lookahead if args.lookahead else ''
+        log_entry["Look Ahead eps"] = trainer.stopping_criteria[1].eps if args.lookahead else ''
     else:
         log_entry["Look Ahead"] = trainer.stopping_criteria[0].lookahead if args.lookahead else ''
+        log_entry["Look Ahead eps"] = trainer.stopping_criteria[0].eps if args.lookahead else ''
 
     log_entry["Batch Size"] = trainer.optimizer.batch_size
     log_entry["Update Rule"] = trainer.optimizer.update_rules[0].__class__.__name__

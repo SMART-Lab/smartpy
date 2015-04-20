@@ -212,23 +212,27 @@ def main():
         log_entry = OrderedDict()
         log_entry["Learning Rate"] = trainer.optimizer.update_rules[0].lr
         log_entry["Learning Rate NADE"] = trainer.optimizer.update_rules[0].lr
-        log_entry["Initialization Seed"] = args.seed
-        log_entry["Ordering Seed"] = args.ordering_seed
         log_entry["Hidden Size"] = nade.hyperparams["hidden_size"]
         log_entry["Activation Function"] = nade.hyperparams["hidden_activation"]
         log_entry["Gamma"] = 0.
+        log_entry["Noise Lambda"] = ""
+        log_entry["Sampling"] = 0
+        log_entry["Initialization Seed"] = args.seed
+        log_entry["Ordering Seed"] = args.ordering_seed
         log_entry["Tied Weights"] = nade.hyperparams["tied_weights"]
         log_entry["Best Epoch"] = trainer.status.extra["best_epoch"] if args.lookahead else trainer.status.current_epoch
         log_entry["Max Epoch"] = trainer.stopping_criteria[0].nb_epochs_max if args.max_epoch else ''
 
         if args.max_epoch:
             log_entry["Look Ahead"] = trainer.stopping_criteria[1].lookahead if args.lookahead else ''
+            log_entry["Look Ahead eps"] = trainer.stopping_criteria[1].eps if args.lookahead else ''
         else:
             log_entry["Look Ahead"] = trainer.stopping_criteria[0].lookahead if args.lookahead else ''
+            log_entry["Look Ahead eps"] = trainer.stopping_criteria[0].eps if args.lookahead else ''
 
         log_entry["Batch Size"] = trainer.optimizer.batch_size
         log_entry["Update Rule"] = trainer.optimizer.update_rules[0].__class__.__name__
-        log_entry["Weights Initialization"] = "Uniform"
+        log_entry["Weights Initialization"] = args.weights_initialization
         log_entry["Training NLL"] = nll_train.mean
         log_entry["Training NLL std"] = nll_train.std
         log_entry["Validation NLL"] = nll_valid.mean

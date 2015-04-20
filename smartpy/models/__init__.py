@@ -20,7 +20,8 @@ def factory(model_name, input_size, hyperparams):
         model = NestedNADE(trained_nade=hyperparams["nade"],
                            hidden_size=hyperparams["size"],
                            hidden_activation=hyperparams["hidden_activation"],
-                           gamma=hyperparams["gamma"]
+                           gamma=hyperparams["gamma"],
+                           noise_lambda=hyperparams["noise_lambda"]
                            )
 
     return model

@@ -16,6 +16,7 @@ class NestedNADE(NADE):
                  hidden_size=None,
                  gamma=1.,
                  hidden_activation=None,
+                 noise_lambda=1.,
                  *args, **kwargs):
 
         # Load already trained NADE
@@ -34,8 +35,10 @@ class NestedNADE(NADE):
 
         self.hyperparams['trained_nade'] = trained_nade
         self.hyperparams['gamma'] = gamma
+        self.hyperparams['noise_lambda'] = noise_lambda
 
         self.gamma = gamma
+        self.noise_lambda = noise_lambda
         #self.noise = theano.shared(np.zeros((1, self.input_size), dtype=theano.config.floatX),
         #                            name='noise', borrow=True)
 
@@ -50,7 +53,7 @@ class NestedNADE(NADE):
         self.alike_term_mean = alike_term.mean()
         self.noise_term_mean = noise_term.mean()
 
-        noise_contrastive_costs = alike_term + noise_term
+        noise_contrastive_costs = alike_term + self.noise_lambda * noise_term
         return 0.5 * noise_contrastive_costs.mean()
 
     def loss(self, input, noise):
