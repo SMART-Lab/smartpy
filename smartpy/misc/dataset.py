@@ -80,21 +80,21 @@ class UnsupervisedDataset(object):
     @property
     def trainset_shared(self):
         if self._trainset_shared is None:
-            theano.shared(self.trainset, name="trainset", borrow=True)
+            self._trainset_shared = theano.shared(self.trainset, name="trainset", borrow=True)
 
         return self._trainset_shared
 
     @property
     def validset_shared(self):
         if self._validset_shared is None:
-            theano.shared(self.validset, name="validset", borrow=True)
+            self._validset_shared = theano.shared(self.validset, name="validset", borrow=True)
 
         return self._validset_shared
 
     @property
     def testset_shared(self):
         if self._testset_shared is None:
-            theano.shared(self.testset, name="testset", borrow=True)
+            self._testset_shared = theano.shared(self.testset, name="testset", borrow=True)
 
         return self._testset_shared
 
