@@ -248,7 +248,7 @@ def main():
 
     log_entry["Batch Size"] = trainer.optimizer.batch_size
     log_entry["Update Rule"] = trainer.optimizer.update_rules[0].__class__.__name__
-    log_entry["Weights Initialization"] = "Uniform"
+    log_entry["Weights Initialization"] = args.weights_initialization
     log_entry["Training NLL"] = nll_train.mean
     log_entry["Training NLL std"] = nll_train.std
     log_entry["Validation NLL"] = nll_valid.mean

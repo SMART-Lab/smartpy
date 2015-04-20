@@ -9,6 +9,8 @@ import numpy as np
 from smartpy.misc import utils
 from smartpy.models.nade import NADE
 
+from smartpy.misc.dataset import UnsupervisedDataset as Dataset
+
 
 def buildArgsParser():
     DESCRIPTION = "Generate samples from a NADE model."
@@ -16,7 +18,9 @@ def buildArgsParser():
 
     p.add_argument('nade', type=str, help='folder where to find a trained NADE model')
     p.add_argument('count', type=int, help='number of samples to generate.')
-    p.add_argument('--out', type=str, help='name of the samples file', default="samples")
+    p.add_argument('--out', type=str, help='name of the samples file')
+    p.add_argument('--alpha', type=float, help='Ratio of input units to condition on.')
+    p.add_argument('--dataset', type=str, help='name of dataset for conditional sampling', default="binarized_mnist")
 
     # General parameters (optional)
     p.add_argument('--seed', type=int, help='seed used to generate random numbers.')
@@ -35,17 +39,38 @@ def main():
     with utils.Timer("Loading model"):
         nade = NADE.create(args.nade)
 
-    with utils.Timer("Sampling ({0} samples)".format(args.count)):
-        samples = nade.sample(args.count, seed=args.seed)
+    if args.alpha is not None:
+        with utils.Timer("Loading dataset"):
+            dataset = Dataset(args.dataset)
 
-    outfile = pjoin(args.nade, args.out)
-    with utils.Timer("Saving {0} samples to '{1}'".format(args.count, outfile)):
-        np.save(outfile, samples)
+            rng = np.random.RandomState(args.seed)
+            idx = np.arange(len(dataset.validset))
+            rng.shuffle(idx)
+            examples = dataset.validset[idx[:args.count]]
+
+        with utils.Timer("Generating {} conditional samples from NADE with alpha={}".format(len(examples), args.alpha)):
+            sample_conditionally = nade.build_conditional_sampling_function(seed=args.seed)
+            samples = sample_conditionally(examples, alpha=args.alpha)
+    else:
+        with utils.Timer("Generating {} samples from NADE".format(args.count)):
+            sample = nade.build_sampling_function(seed=args.seed)
+            samples = sample(args.count)
+
+    if args.out is not None:
+        outfile = pjoin(args.nade, args.out)
+        with utils.Timer("Saving {0} samples to '{1}'".format(args.count, outfile)):
+            np.save(outfile, samples)
 
     if args.view:
         import pylab as plt
         from mlpython.misc.utils import show_samples
-        show_samples(samples)
+
+        if args.alpha is not None:
+            show_samples(examples, title="Examples")
+            show_samples(samples, title="Conditional samples with alpha={}".format(args.alpha))
+        else:
+            show_samples(samples, title="Uniform samples")
+
         plt.show()
 
 if __name__ == '__main__':

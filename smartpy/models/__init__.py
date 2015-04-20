@@ -12,6 +12,7 @@ def factory(model_name, input_size, hyperparams):
         model = NADE(input_size=input_size,
                      hidden_size=hyperparams["size"],
                      hidden_activation=hyperparams["hidden_activation"],
+                     ordering_seed=hyperparams["ordering_seed"],
                      #regularization=regularization_method
                      )
     elif model_name.lower() == "NestedNADE".lower():

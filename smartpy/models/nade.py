@@ -22,6 +22,7 @@ class NADE(Model):
                  hidden_size,
                  hidden_activation="sigmoid",
                  tied_weights=False,
+                 ordering_seed=None,
                  *args, **kwargs):
         super(NADE, self).__init__(*args, **kwargs)
 
@@ -29,11 +30,13 @@ class NADE(Model):
         self.hyperparams['hidden_size'] = hidden_size
         self.hyperparams['hidden_activation'] = hidden_activation
         self.hyperparams['tied_weights'] = tied_weights
+        self.hyperparams['ordering_seed'] = ordering_seed
 
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.hidden_activation = ACTIVATION_FUNCTIONS[hidden_activation]
         self.tied_weights = tied_weights
+        self.ordering_seed = ordering_seed
 
         # Define layers weights and biases (a.k.a parameters)
         self.W = theano.shared(value=np.zeros((input_size, hidden_size), dtype=theano.config.floatX), name='W', borrow=True)
@@ -45,6 +48,13 @@ class NADE(Model):
         if not tied_weights:
             self.V = theano.shared(value=np.zeros((input_size, hidden_size), dtype=theano.config.floatX), name='V', borrow=True)
             self.parameters.append(self.V)
+
+        self.ordering = np.arange(self.input_size)
+        if self.ordering_seed is not None:
+            rng = np.random.RandomState(self.ordering_seed)
+            rng.shuffle(self.ordering)
+
+        self.ordering_reverse = np.argsort(self.ordering)
 
     def build_sampling_function(self, seed=None):
         # Build sampling function
@@ -68,6 +78,34 @@ class NADE(Model):
                 return samples
         return _sample
 
+    def build_conditional_sampling_function(self, seed=None):
+        # Build sampling function
+        rng = np.random.RandomState(seed)
+        theano_rng = RandomStreams(rng.randint(2**30))
+        bit = T.iscalar('bit')
+        input = T.matrix('input')
+        pre_acc = T.dot(input, self.W) + self.bhid
+        h = self.hidden_activation(pre_acc)
+        pre_output = T.sum(h * self.V[bit], axis=1) + self.bvis[bit]
+        probs = T.nnet.sigmoid(pre_output)
+        bits = theano_rng.binomial(p=probs, size=probs.shape, n=1, dtype=theano.config.floatX)
+        sample_bit_plus = theano.function([input, bit], bits)
+
+        def _sample(examples, alpha=0):
+            """
+            alpha : ratio of input units to condition on.
+            """
+            assert alpha >= 0 and alpha <= 1
+            start = int(np.ceil(alpha*self.input_size))
+            samples = examples[:, self.ordering]  # Change input units ordering.
+            samples[:, start:] = 0.
+            for bit in range(start, self.input_size):
+                samples[:, bit] = sample_bit_plus(samples, bit)
+
+            # Change back the input units ordering.
+            return samples[:, self.ordering_reverse]
+        return _sample
+
     def initialize(self, weights_initialization=None):
         if weights_initialization is None:
             weights_initialization = WeightsInitializer().uniform
@@ -78,6 +116,7 @@ class NADE(Model):
             self.V.set_value(weights_initialization(self.V.get_value().shape))
 
     def fprop(self, input, return_output_preactivation=False):
+        input = input[:, self.ordering]  # Does not matter if ordering is the default one, indexing is fast.
         input_times_W = input.T[:, :, None] * self.W[:, None, :]
 
         # This uses the SplitOp which isn't available yet on the GPU.
@@ -98,40 +137,14 @@ class NADE(Model):
 
         return output.T
 
-    def get_nll(self, input):
+    def get_nll(self, input, target):
+        target = target[:, self.ordering]  # Does not matter if ordering is the default one, indexing is fast.
         output, pre_output = self.fprop(input, return_output_preactivation=True)
-        #nll = T.sum(T.nnet.softplus(-input * pre_output + (1 - input) * pre_output), axis=1)
-        nll = T.sum(T.nnet.softplus(-input.T * pre_output.T + (1 - input.T) * pre_output.T), axis=0)
+        nll = T.sum(T.nnet.softplus(-target.T * pre_output.T + (1 - target.T) * pre_output.T), axis=0)
+        # The following does not give the same results, numerical precision error?
+        #nll = T.sum(T.nnet.softplus(-target * pre_output + (1 - target) * pre_output), axis=1)
         return nll
 
-    def mean_nll_loss(self, input):
-        nll = self.get_nll(input)
+    def mean_nll_loss(self, input, target):
+        nll = self.get_nll(input, target)
         return nll.mean()
-
-    # def sample_scan(self, X, seed=1234):
-    #     theano_rng = RandomStreams(seed)
-    #     samples = T.zeros_like(X)
-
-    #     def _sample_bit(bit, input):
-    #         probs = self.fprop(input)[:, [bit]]
-    #         bits = theano_rng.binomial(p=probs, size=(X.shape[0], 1), n=1, dtype=theano.config.floatX)
-    #         return T.set_subtensor(input[:, [bit]], bits)
-
-    #     partial_samples, updates = theano.scan(_sample_bit,
-    #                                            sequences=[np.arange(self.input_size)],
-    #                                            outputs_info=[samples])
-
-    #     return partial_samples[-1], updates
-    #     def _sample_bit(bit, acc_input_times_W, last_bit):
-    #         #acc_input_times_W += self.bhid
-    #         h = self.hidden_activation(acc_input_times_W)
-    #         pre_output = T.sum(h * self.V[bit], axis=1) + self.bvis[bit]
-    #         probs = T.nnet.sigmoid(pre_output)
-    #         bits = theano_rng.binomial(p=probs, size=probs.shape, n=1, dtype=theano.config.floatX)
-    #         return acc_input_times_W + bits[:, None] * self.W[[bit], :], bits
-
-    #     acc, samples, updates = theano.scan(_sample_bit,
-    #                                         sequences=[np.arange(self.input_size)],
-    #                                         outputs_info=[(self.bhid[:, None] + S).T, S])
-
-    #     return acc, samples, updates
