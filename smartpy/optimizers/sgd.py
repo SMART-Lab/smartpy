@@ -23,10 +23,10 @@ class SGD(Optimizer):
 
             self.datasets.append(dataset_shared)
 
-        self.nb_updates_per_epoch = int(np.ceil(len(datasets[0]) / self.batch_size))
+        self.nb_updates_per_epoch = int(np.ceil(len(self.datasets[0].get_value()) / self.batch_size))
 
         # Build learner
-        self.inputs = [T.matrix('input' + str(i)) for i in range(len(datasets))]
+        self.inputs = [T.matrix('input' + str(i)) for i in range(len(self.datasets))]
         self.objective = self.loss(*self.inputs)
 
         self.gradients, updates = model.get_gradients(self.objective)

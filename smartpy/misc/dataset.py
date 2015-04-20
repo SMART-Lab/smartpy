@@ -50,6 +50,9 @@ class UnsupervisedDataset(object):
         self._trainset_idx = None
         self._validset_idx = None
         self._testset_idx = None
+        self._trainset_shared = None
+        self._validset_shared = None
+        self._testset_shared = None
 
         self.input_size = len(self._trainset[0])
 
@@ -74,6 +77,27 @@ class UnsupervisedDataset(object):
         else:
             return self._testset
 
+    @property
+    def trainset_shared(self):
+        if self._trainset_shared is None:
+            theano.shared(self.trainset, name="trainset", borrow=True)
+
+        return self._trainset_shared
+
+    @property
+    def validset_shared(self):
+        if self._validset_shared is None:
+            theano.shared(self.validset, name="validset", borrow=True)
+
+        return self._validset_shared
+
+    @property
+    def testset_shared(self):
+        if self._testset_shared is None:
+            theano.shared(self.testset, name="testset", borrow=True)
+
+        return self._testset_shared
+
     def downsample(self, percent_to_keep, rng_seed=None):
         # Validate parameters
         if not (0 < percent_to_keep or percent_to_keep <= 1):
@@ -88,3 +112,7 @@ class UnsupervisedDataset(object):
         self._trainset_idx = rng.choice(np.arange(len(self.trainset)), size=int(len(self.trainset) * percent_to_keep), replace=False)
         self._validset_idx = rng.choice(np.arange(len(self.validset)), size=int(len(self.validset) * percent_to_keep), replace=False)
         self._testset_idx = rng.choice(np.arange(len(self.testset)), size=int(len(self.testset) * percent_to_keep), replace=False)
+
+        self._trainset_shared = None
+        self._validset_shared = None
+        self._testset_shared = None

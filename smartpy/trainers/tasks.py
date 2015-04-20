@@ -189,22 +189,28 @@ class AverageObjective(Task):
 
 
 class EvaluateNLL(Evaluate):
-    def __init__(self, nll, dataset, batch_size=None):
+    def __init__(self, nll, datasets, batch_size=None):
         import theano
         import theano.tensor as T
 
+        shared_datasets = []
+        for i, dataset in enumerate(datasets):
+            dataset_shared = dataset
+            if isinstance(dataset, np.ndarray):
+                dataset_shared = theano.shared(dataset, name='data_'+str(i), borrow=True)
+
+            shared_datasets.append(dataset_shared)
+
         if batch_size is None:
-            batch_size = len(dataset)
+            batch_size = len(shared_datasets[0].get_value())
 
-        nb_batches = int(np.ceil(len(dataset) / batch_size))
-        dataset = theano.shared(dataset, name='data', borrow=True)
+        nb_batches = int(np.ceil(len(shared_datasets[0].get_value()) / batch_size))
 
-        input = T.matrix('input')
+        inputs = [T.matrix('input' + str(i)) for i in range(len(shared_datasets))]
+        objective = nll(*inputs)
         no_batch = T.iscalar('no_batch')
-        compute_nll = theano.function([no_batch],
-                                      nll(input),
-                                      givens={input: dataset[no_batch * batch_size:(no_batch + 1) * batch_size]},
-                                      name="NLL")
+        givens = {input: dataset[no_batch * batch_size:(no_batch + 1) * batch_size] for input, dataset in zip(inputs, shared_datasets)}
+        compute_nll = theano.function([no_batch], objective, givens=givens, name="NLL")
 
         def _nll_mean_and_std():
             nlls = []
