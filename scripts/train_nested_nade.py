@@ -57,6 +57,7 @@ def build_launch_experiment_argsparser(subparser):
     nested_nade.add_argument('--gamma', type=float, help="'tradeoff' between nll loss and noise-contrastive loss.", default=1.)
     nested_nade.add_argument('--noise_lambda', type=float, help='weight on the noise term in the noise-contrastive loss.', default=1.)
     nested_nade.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)), choices=WEIGHTS_INITIALIZERS, default=WEIGHTS_INITIALIZERS[0])
+    nested_nade.add_argument('--ordering_seed', type=int, help='if provided, pixel will be shuffling using this random seed.')
     #nested_nade.add_argument('--use_nade_weights', action='store_true', help='initialize NN-NADE with weights of NADE')
 
     # Update rules hyperparameters
