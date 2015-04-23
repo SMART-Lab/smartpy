@@ -241,9 +241,6 @@ class EarlyStopping(Task, StoppingCriterion):
         self.eps = eps
         self.stopping = False
 
-    def check(self, status):
-        return status.current_epoch - status.extra['best_epoch'] >= self.lookahead
-
     def init(self, status):
         if 'best_epoch' not in status.extra:
             status.extra['best_epoch'] = 0
@@ -251,15 +248,17 @@ class EarlyStopping(Task, StoppingCriterion):
         if 'best_objective' not in status.extra:
             status.extra['best_objective'] = float(np.inf)
 
-    def post_epoch(self, status):
+    def check(self, status):
         objective = self.objective.view(status)
         if objective + self.eps < status.extra['best_objective']:
-            print "Best epoch", status.current_epoch
+            print "Best epoch {} ({})".format(status.current_epoch, objective)
             status.extra['best_objective'] = float(objective)
             status.extra['best_epoch'] = status.current_epoch
 
             if self.save_task is not None:
                 self.save_task.execute(status)
+
+        return status.current_epoch - status.extra['best_epoch'] >= self.lookahead
 
 
 class SaveTraining(Task):
@@ -329,7 +328,7 @@ class LogResultGSheet(Task):
 
 
 class Sampling(Task):
-    def __init__(self, sampling_func, nb_samples, shape, each_epoch=0, seed=None):
+    def __init__(self, sampling_func, nb_samples, shape, each_epoch=0):
         super(Sampling, self).__init__()
 
         import theano
