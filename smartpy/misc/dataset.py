@@ -130,10 +130,10 @@ def load_unsupervised_dataset(dataset_name):
 
 class UnsupervisedDataset(object):
     def __init__(self, dataset_name):
-        self.datasets = {}
-
         # Load dataset from a numpy file
+        dataset_npy = os.path.join(os.environ['MLPYTHON_DATASET_REPO'], dataset_name, 'data.npz')
         self.name = dataset_name
+        self.datasets = np.load(dataset_npy)
         self._trainset = self.datasets['trainset'].astype(theano.config.floatX)
         self._validset = self.datasets['validset'].astype(theano.config.floatX)
         self._testset = self.datasets['testset'].astype(theano.config.floatX)
