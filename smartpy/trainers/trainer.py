@@ -33,7 +33,7 @@ class Trainer(Thread):
         self.tasks.append(task)
 
     def track_variable(self, var, shape, name=""):
-        var_shared = theano.shared(np.zeros(shape, dtype=theano.config.floatX), name=name)
+        var_shared = theano.shared(np.zeros(shape, dtype=var.dtype), name=name)
         self.updates[var_shared] = var
         return var_shared
 

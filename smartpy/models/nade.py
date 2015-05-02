@@ -141,8 +141,12 @@ class NADE(Model):
         target = target[:, self.ordering]  # Does not matter if ordering is the default one, indexing is fast.
         output, pre_output = self.fprop(input, return_output_preactivation=True)
         nll = T.sum(T.nnet.softplus(-target.T * pre_output.T + (1 - target.T) * pre_output.T), axis=0)
+        #nll = T.sum(T.nnet.softplus(-input.T * pre_output.T + (1 - input.T) * pre_output.T), axis=0)
+        #self.sum_diff = (input-target).sum(dtype="float64")
+
         # The following does not give the same results, numerical precision error?
         #nll = T.sum(T.nnet.softplus(-target * pre_output + (1 - target) * pre_output), axis=1)
+        #nll = T.sum(T.nnet.softplus(-input * pre_output + (1 - input) * pre_output), axis=1)
         return nll
 
     def mean_nll_loss(self, input, target):

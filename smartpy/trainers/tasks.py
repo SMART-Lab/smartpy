@@ -251,7 +251,7 @@ class EarlyStopping(Task, StoppingCriterion):
     def check(self, status):
         objective = self.objective.view(status)
         if objective + self.eps < status.extra['best_objective']:
-            print "Best epoch {} ({})".format(status.current_epoch, objective)
+            print "Best epoch {} ({:.20f})".format(status.current_epoch, objective)
             status.extra['best_objective'] = float(objective)
             status.extra['best_epoch'] = status.current_epoch
 
