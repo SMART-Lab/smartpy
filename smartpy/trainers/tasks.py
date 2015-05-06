@@ -6,6 +6,7 @@ import numpy as np
 from collections import OrderedDict
 from time import time
 
+import theano
 from smartpy.misc import utils
 
 
@@ -17,6 +18,11 @@ class StoppingCriterion(object):
 class Task(object):
     def __init__(self):
         self.updates = OrderedDict()
+
+    def track_variable(self, var, shape, name=""):
+        var_shared = theano.shared(np.zeros(shape, dtype=var.dtype), name=name)
+        self.updates[var_shared] = var
+        return var_shared
 
     def init(self, status):
         pass
@@ -232,7 +238,7 @@ class EvaluateNLL(Evaluate):
 
 
 class EarlyStopping(Task, StoppingCriterion):
-    def __init__(self, objective, lookahead, save_task=None, eps=0.):
+    def __init__(self, objective, lookahead, save_task=None, eps=0., skip_epoch0=False):
         super(EarlyStopping, self).__init__()
 
         self.objective = objective
@@ -240,6 +246,7 @@ class EarlyStopping(Task, StoppingCriterion):
         self.save_task = save_task
         self.eps = eps
         self.stopping = False
+        self.skip_epoch0 = skip_epoch0
 
     def init(self, status):
         if 'best_epoch' not in status.extra:
@@ -249,6 +256,9 @@ class EarlyStopping(Task, StoppingCriterion):
             status.extra['best_objective'] = float(np.inf)
 
     def check(self, status):
+        if self.skip_epoch0 and status.current_epoch == 0:
+            return False
+
         objective = self.objective.view(status)
         if objective + self.eps < status.extra['best_objective']:
             print "Best epoch {} ({:.20f})".format(status.current_epoch, objective)

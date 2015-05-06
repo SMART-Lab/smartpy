@@ -163,10 +163,15 @@ def main():
         dataset = load_unsupervised_dataset(args.dataset)
 
     with utils.Timer("Augmenting dataset"):
-        sample_conditionally = denade.build_conditional_sampling_function(seed=args.seed)
         trainset = dataset.trainset
+        sample_file = pjoin(data_dir, "samples_{}.npz".format(args.seed))
+        if not os.path.isfile(sample_file):
+            sample_conditionally = denade.build_conditional_sampling_function(seed=args.seed)
+            samples = sample_conditionally(trainset.inputs, alpha=args.alpha)
+            np.savez(sample_file, samples=samples, targets=trainset.inputs)
+        else:
+            samples = np.load(sample_file)["samples"]
 
-        samples = sample_conditionally(trainset.inputs, alpha=args.alpha)
         inputs = np.zeros((2*len(trainset), trainset.input_shape[0]), dtype=theano.config.floatX)
         targets = np.zeros((2*len(trainset), trainset.input_shape[0]), dtype=theano.config.floatX)
         inputs[::2] = trainset.inputs
@@ -192,6 +197,9 @@ def main():
         trainer.add_task(tasks.PrintEpochDuration())
         nll_valid = tasks.EvaluateNLL(denade.get_nll, [dataset.validset.inputs_shared]*2, batch_size=100)
         trainer.add_task(tasks.Print(nll_valid.mean, msg="Average NLL on the validset: {0}"))
+        from smartpy.trainers import Status
+        nade_valid_nll = nll_valid.mean.view(Status())
+        print "NADE - Validation NLL: {:.6f}".format(nade_valid_nll)
 
         # Add stopping criteria
         if args.max_epoch is not None:
@@ -203,7 +211,7 @@ def main():
         if args.lookahead is not None:
             print "Will train {0} using early stopping with a lookahead of {1} epochs.".format(args.model, args.lookahead)
             save_task = tasks.SaveTraining(trainer, savedir=data_dir)
-            early_stopping = tasks.EarlyStopping(nll_valid.mean, args.lookahead, save_task, eps=args.lookahead_eps)
+            early_stopping = tasks.EarlyStopping(nll_valid.mean, args.lookahead, save_task, eps=args.lookahead_eps, skip_epoch0=True)
             trainer.add_stopping_criterion(early_stopping)
             trainer.add_task(early_stopping)
 
@@ -268,6 +276,7 @@ def main():
         log_entry["Training Time"] = trainer.status.training_time
         log_entry["Experiment"] = os.path.abspath(data_dir)
         log_entry["NADE"] = args.nade
+        log_entry["NADE Validation NLL"] = nade_valid_nll
 
         formatting = {}
         formatting["Augmented Training NLL"] = "{:.6f}"
@@ -279,6 +288,7 @@ def main():
         formatting["Testing NLL"] = "{:.6f}"
         formatting["Testing NLL std"] = "{:.6f}"
         formatting["Training Time"] = "{:.4f}"
+        formatting["NADE Validation NLL"] = "{:.6f}"
 
         from smartpy.trainers import Status
         status = Status()
