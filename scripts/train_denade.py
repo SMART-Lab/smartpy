@@ -188,7 +188,13 @@ def main():
 
     with utils.Timer("Building optimizer"):
         optimizer = optimizers.factory(args.optimizer, loss=denade.mean_nll_loss, **vars(args))
-        optimizer.add_update_rule(*args.update_rules)
+        if args.update_rules is not None:
+            optimizer.add_update_rule(*args.update_rules)
+        else:
+            command_nade = pickle.load(open(pjoin(args.nade, "command.pkl")))
+            lr_nade = float(command_nade[command_nade.index("--ADAGRAD") + 1])
+            from smartpy.update_rules import ADAGRAD
+            optimizer.add_update_rule(ADAGRAD(lr=lr_nade))
 
     with utils.Timer("Building trainer"):
         trainer = Trainer(model=denade, datasets=[augmented_trainset.inputs_shared, augmented_trainset.targets_shared], optimizer=optimizer)
