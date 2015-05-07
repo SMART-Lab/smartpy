@@ -58,6 +58,7 @@ def build_launch_experiment_argsparser(subparser):
     denade.add_argument('--alpha', type=float, help="ratio of input units to condition on.", default=0.5)
     denade.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)), choices=WEIGHTS_INITIALIZERS, default=WEIGHTS_INITIALIZERS[0])
     denade.add_argument('--ordering_seed', type=int, help='if provided, pixel will be shuffling using this random seed.')
+    denade.add_argument('--noise_weight', type=float, help="weight of noise's NLL.", default=1.)
 
     # Update rules hyperparameters
     utils.create_argument_group_from_hyperparams_registry(p, update_rules.UpdateRule.registry, dest="update_rules", title="Update rules")
@@ -186,8 +187,15 @@ def main():
         # show_samples(samples, title="Conditional samples with alpha={}".format(args.alpha))
         # plt.show()
 
+    with utils.Timer("Building loss function"):
+        def mean_nll_loss(input, target):
+            # Weigh noise's nll
+            nll = denade.get_nll(input, target)
+            nll *= args.noise_weight * (T.sum(abs(target-input), axis=1) > 0)
+            return nll.mean()
+
     with utils.Timer("Building optimizer"):
-        optimizer = optimizers.factory(args.optimizer, loss=denade.mean_nll_loss, **vars(args))
+        optimizer = optimizers.factory(args.optimizer, loss=mean_nll_loss, **vars(args))
         if args.update_rules is not None:
             optimizer.add_update_rule(*args.update_rules)
         else:
@@ -253,6 +261,7 @@ def main():
         log_entry["Learning Rate NADE"] = lr_nade
         log_entry["Hidden Size"] = denade.hyperparams["hidden_size"]
         log_entry["Activation Function"] = denade.hyperparams["hidden_activation"]
+        log_entry["noise_weight"] = args.noise_weight
         log_entry["alpha"] = args.alpha
         log_entry["Sampling"] = int(args.sampling)
         log_entry["Initialization Seed"] = args.seed
