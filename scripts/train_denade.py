@@ -261,11 +261,11 @@ def main():
         log_entry["Learning Rate NADE"] = lr_nade
         log_entry["Hidden Size"] = denade.hyperparams["hidden_size"]
         log_entry["Activation Function"] = denade.hyperparams["hidden_activation"]
-        log_entry["noise_weight"] = args.noise_weight
+        log_entry["Noise Weight"] = args.noise_weight
         log_entry["alpha"] = args.alpha
         log_entry["Sampling"] = int(args.sampling)
         log_entry["Initialization Seed"] = args.seed
-        log_entry["Ordering Seed"] = args.ordering_seed
+        log_entry["Ordering Seed"] = denade.hyperparams["ordering_seed"]
         log_entry["Tied Weights"] = denade.hyperparams["tied_weights"]
         log_entry["Best Epoch"] = trainer.status.extra["best_epoch"] if args.lookahead else trainer.status.current_epoch
         log_entry["Max Epoch"] = trainer.stopping_criteria[0].nb_epochs_max if args.max_epoch else ''
