@@ -53,6 +53,7 @@ def build_launch_experiment_argsparser(subparser):
     denade = p.add_argument_group("Denoising NADE")
     denade.add_argument('nade', type=str, help='folder where to find an already trained NADE model')
     denade.add_argument('--sampling', metavar="N", type=int, help='sampling will be done at N epoch (Default: only once at the beginning)', default=0)
+    denade.add_argument('--sampling_type', type=str, help='type of sampling used to generate noisy examples: "independent" or "conditional")', default="conditional")
     denade.add_argument('--size', type=int, help='number of hidden neurons.')
     denade.add_argument('--hidden_activation', type=str, help="Activation functions: {}".format(ACTIVATION_FUNCTIONS.keys()), choices=ACTIVATION_FUNCTIONS.keys())
     denade.add_argument('--alpha', type=float, help="ratio of input units to condition on.", default=0.5)
@@ -167,8 +168,15 @@ def main():
         trainset = dataset.trainset
         sample_file = pjoin(data_dir, "samples_{}.npz".format(args.seed))
         if not os.path.isfile(sample_file):
-            sample_conditionally = denade.build_conditional_sampling_function(seed=args.seed)
-            samples = sample_conditionally(trainset.inputs, alpha=args.alpha)
+            if args.sampling_type == "conditional":
+                sample = denade.build_conditional_sampling_function(seed=args.seed)
+                samples = sample(trainset.inputs, alpha=args.alpha)
+            elif args.sampling_type == "independent":
+                sample = denade.build_independent_sampling_function(seed=args.seed)
+                samples = sample(trainset.inputs)
+            else:
+                raise ValueError("Unknown type of sampling: {}".format(args.sampling_type))
+
             np.savez(sample_file, samples=samples, targets=trainset.inputs)
         else:
             samples = np.load(sample_file)["samples"]
@@ -264,6 +272,7 @@ def main():
         log_entry["Noise Weight"] = args.noise_weight
         log_entry["alpha"] = args.alpha
         log_entry["Sampling"] = int(args.sampling)
+        log_entry["Sampling Type"] = args.sampling_type
         log_entry["Initialization Seed"] = args.seed
         log_entry["Ordering Seed"] = denade.hyperparams["ordering_seed"]
         log_entry["Tied Weights"] = denade.hyperparams["tied_weights"]

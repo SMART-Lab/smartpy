@@ -106,6 +106,24 @@ class NADE(Model):
             return samples[:, self.ordering_reverse]
         return _sample
 
+    def build_independent_sampling_function(self, seed=None):
+        # Build sampling function
+        rng = np.random.RandomState(seed)
+        theano_rng = RandomStreams(rng.randint(2**30))
+        input = T.matrix('input')
+        probs = self.fprop(input)
+        bits = theano_rng.binomial(p=probs, size=probs.shape, n=1, dtype=theano.config.floatX)
+        sample_bits = theano.function([input], bits[:, self.ordering_reverse])
+
+        def _sample(examples):
+            samples = np.zeros_like(examples)
+            chunk_size = 1000
+            for start in range(0, len(examples), chunk_size):
+                end = start + chunk_size
+                samples[start:end] = sample_bits(examples[start:end])
+            return samples
+        return _sample
+
     def initialize(self, weights_initialization=None):
         if weights_initialization is None:
             weights_initialization = WeightsInitializer().uniform
