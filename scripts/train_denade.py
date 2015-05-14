@@ -57,7 +57,7 @@ def build_launch_experiment_argsparser(subparser):
     denade.add_argument('--size', type=int, help='number of hidden neurons.')
     denade.add_argument('--hidden_activation', type=str, help="Activation functions: {}".format(ACTIVATION_FUNCTIONS.keys()), choices=ACTIVATION_FUNCTIONS.keys())
     denade.add_argument('--alpha', type=float, help="ratio of input units to condition on.", default=0.5)
-    denade.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)), choices=WEIGHTS_INITIALIZERS, default=WEIGHTS_INITIALIZERS[0])
+    denade.add_argument('--weights_initialization', type=str, help='which type of initialization to use when creating weights [{0}].'.format(", ".join(WEIGHTS_INITIALIZERS)), choices=WEIGHTS_INITIALIZERS, default="NADE")
     denade.add_argument('--ordering_seed', type=int, help='if provided, pixel will be shuffling using this random seed.')
     denade.add_argument('--noise_weight', type=float, help="weight of noise's NLL.", default=1.)
 
@@ -157,12 +157,23 @@ def main():
 
         args.subcommand = "resume"
 
+    with utils.Timer("Loading dataset"):
+        dataset = load_unsupervised_dataset(args.dataset)
+
     with utils.Timer("Building model"):
         from smartpy.models.nade import NADE
         denade = NADE.create(args.nade)
 
-    with utils.Timer("Loading dataset"):
-        dataset = load_unsupervised_dataset(args.dataset)
+        # Hack: Just recomputing the NLL for the original NADE
+        from smartpy.trainers import Status
+        nll_valid = tasks.EvaluateNLL(denade.get_nll, [dataset.validset.inputs_shared]*2, batch_size=100)
+        nade_valid_nll = nll_valid.mean.view(Status())
+        print "NADE - Validation NLL: {:.6f}".format(nade_valid_nll)
+
+        if args.weights_initialization.upper() != "NADE":
+            from smartpy.misc import weights_initializer
+            weights_initialization_method = weights_initializer.factory(**vars(args))
+            denade.initialize(weights_initialization_method)
 
     with utils.Timer("Augmenting dataset"):
         trainset = dataset.trainset
@@ -219,9 +230,6 @@ def main():
         trainer.add_task(tasks.PrintEpochDuration())
         nll_valid = tasks.EvaluateNLL(denade.get_nll, [dataset.validset.inputs_shared]*2, batch_size=100)
         trainer.add_task(tasks.Print(nll_valid.mean, msg="Average NLL on the validset: {0}"))
-        from smartpy.trainers import Status
-        nade_valid_nll = nll_valid.mean.view(Status())
-        print "NADE - Validation NLL: {:.6f}".format(nade_valid_nll)
 
         # Add stopping criteria
         if args.max_epoch is not None:
