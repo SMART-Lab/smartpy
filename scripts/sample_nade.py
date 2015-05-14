@@ -62,7 +62,7 @@ def main():
             rng.shuffle(idx)
             examples = dataset.validset[idx[:args.count]]
 
-        with utils.Timer("Generating {} independent samples from NADE with alpha={}".format(len(examples), args.alpha)):
+        with utils.Timer("Generating {} independent samples".format(len(examples))):
             sample_independently = nade.build_independent_sampling_function(seed=args.seed)
             samples = sample_independently(examples)
 

@@ -179,15 +179,17 @@ def main():
         trainset = dataset.trainset
         sample_file = pjoin(data_dir, "samples_{}.npz".format(args.seed))
         if not os.path.isfile(sample_file):
+            nade = NADE.create(args.nade)
             if args.sampling_type == "conditional":
-                sample = denade.build_conditional_sampling_function(seed=args.seed)
+                sample = nade.build_conditional_sampling_function(seed=args.seed)
                 samples = sample(trainset.inputs, alpha=args.alpha)
             elif args.sampling_type == "independent":
-                sample = denade.build_independent_sampling_function(seed=args.seed)
+                sample = nade.build_independent_sampling_function(seed=args.seed)
                 samples = sample(trainset.inputs)
             else:
                 raise ValueError("Unknown type of sampling: {}".format(args.sampling_type))
 
+            del nade  # Free unnecessary memory
             np.savez(sample_file, samples=samples, targets=trainset.inputs)
         else:
             samples = np.load(sample_file)["samples"]
@@ -210,7 +212,8 @@ def main():
         def mean_nll_loss(input, target):
             # Weigh noise's nll
             nll = denade.get_nll(input, target)
-            nll *= args.noise_weight * (T.sum(abs(target-input), axis=1) > 0)
+            is_noise = T.sum(abs(target-input), axis=1) > 0
+            nll *= args.noise_weight * is_noise + (1-is_noise)
             return nll.mean()
 
     with utils.Timer("Building optimizer"):
