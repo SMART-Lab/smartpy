@@ -41,3 +41,9 @@ class Dataset(object):
 
     def __len__(self):
         return len(self.inputs.get_value())
+
+
+class SyntheticDataset(Dataset):
+    def __init__(self, generator, generate_targets=True, name='SyntheticDataset', **kwargs):
+        inputs, targets = generator.generate_dataset(generate_targets, **kwargs)
+        super().__init__(inputs, targets, name)
