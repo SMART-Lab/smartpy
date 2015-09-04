@@ -104,7 +104,8 @@ def test_simple_perceptron():
     model.initialize()  # By default, uniform initialization.
 
     #Building optimizer
-    optimizer = SGD(loss=NLL(model, trainset))
+    loss = NLL(model, trainset)
+    optimizer = SGD(loss=loss)
     optimizer.append_direction_modifier(ConstantLearningRate(0.1))
 
     # Train for 10 epochs
@@ -116,6 +117,7 @@ def test_simple_perceptron():
     # Print time for one epoch
     trainer.append_task(tasks.PrintEpochDuration())
     trainer.append_task(tasks.PrintTrainingDuration())
+    trainer.append_task(tasks.PrintAverageTrainingLoss(loss))
 
     # Print mean/stderror of classification errors.
     classif_error = views.ClassificationError(model.use, validset)

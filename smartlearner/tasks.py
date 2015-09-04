@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import division, print_function
 
+import numpy as np
 from time import time
 
 from .interfaces import Task, RecurrentTask
@@ -45,6 +46,21 @@ class PrintTrainingDuration(Task):
 
     def finished(self, status):
         print("Training done in {:.03f} sec.".format(time() - self.start_time))
+
+
+class PrintAverageTrainingLoss(Task):
+    def __init__(self, loss):
+        super().__init__()
+        self.loss = self.track_variable(loss._loss, name="Objective")
+
+    def pre_epoch(self, status):
+        self.values = []
+
+    def post_update(self, status):
+        self.values.append(self.loss.get_value())
+
+    def post_epoch(self, status):
+        print("Average training loss: {}".format(np.mean(self.values)))
 
 
 class Breakpoint(RecurrentTask):
