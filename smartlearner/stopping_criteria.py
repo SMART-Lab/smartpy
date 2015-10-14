@@ -55,10 +55,6 @@ class EarlyStopping(Task):
         self.eps = eps
         self.min_nb_epochs = min_nb_epochs
 
-    def init(self, status):
-        self.best_cost = self.cost.view(status)
-        self._stash_model(status)
-
     def post_epoch(self, status):
         cost = float(self.cost.view(status))
         if cost + self.eps < self.best_cost:
