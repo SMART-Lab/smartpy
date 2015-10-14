@@ -1,8 +1,5 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
 
-import numpy as np
-import theano
-
 
 class BatchScheduler(object):
     __metaclass__ = ABCMeta
