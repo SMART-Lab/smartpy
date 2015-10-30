@@ -94,3 +94,14 @@ class Dataset(object):
 
     def __len__(self):
         return len(self.inputs.get_value())
+
+    def derive_dataset(self, inputs, targets=None, name_suffix=None):
+        """ Used to create derived dataset, such as a validset from a training set.
+
+        """
+        new_name = self.name + name_suffix if name_suffix is not None else '_derived'
+        base = Dataset(inputs, targets, name=new_name, keep_on_cpu=self.keep_on_cpu)
+        base.symb_inputs = self.symb_inputs
+        base.symb_targets = self.symb_targets
+
+        return base
